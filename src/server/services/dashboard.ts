@@ -9,6 +9,7 @@ import type {
   SettingsResponse,
   UploadsPage,
   UploadStatus,
+  WixOrderDetails,
 } from '../../shared/types';
 import type { Caller } from '../auth';
 import { getOrder, listOrders, orderCounts } from '../data/orders';
@@ -20,8 +21,10 @@ import { assertRequirementAllowed, parseRuleInput } from '../domain/rules';
 import { parseSettingsInput } from '../domain/settings';
 import { ApiError } from '../errors';
 import { listCatalogProducts } from '../wix/catalog';
+import { fetchWixOrder } from '../wix/orders';
 import { createDownloadUrl, trashFiles } from '../wix/media';
 import { getAccessContext } from './access';
+import { syncOrderNumber } from './orders';
 import { endUpload } from './upload-lifecycle';
 
 const PAGE_SIZE = 25;
@@ -123,6 +126,14 @@ export async function listOrdersPage(cursor: string | null, search: string | nul
 export async function getOrderDetail(orderId: string): Promise<OrderDetail> {
   const [order, files] = await Promise.all([getOrder(orderId), uploads.uploadsForOrder(orderId)]);
   return { order, files: files.map(uploads.toPublicUpload) };
+}
+
+/** The live order from Wix. Also repairs a stored number that was missing when the order was linked. */
+export async function getWixOrderDetails(orderId: string): Promise<WixOrderDetails> {
+  const order = await fetchWixOrder(orderId);
+  if (!order) throw new ApiError('NOT_FOUND', 'Could not load this order from Wix.');
+  await syncOrderNumber(orderId, order.number).catch((error: unknown) => console.error('Order number sync failed', { orderId, error }));
+  return order;
 }
 
 export async function listOrderFilesPage(orderId: string, cursor: string | null, search: string | null): Promise<OrderFilesPage> {

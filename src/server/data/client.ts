@@ -175,6 +175,12 @@ export function strOrNull(value: unknown): string | null {
   return typeof value === 'string' && value.length > 0 ? value : null;
 }
 
+/** Wix reports `"0"` for an order whose number isn't assigned yet; treat that as missing. */
+export function orderNumberOrNull(value: unknown): string | null {
+  const s = strOrNull(value);
+  return s && !/^0+$/.test(s) ? s : null;
+}
+
 export function num(value: unknown): number {
   return typeof value === 'number' && Number.isFinite(value) ? value : Number(value ?? 0) || 0;
 }

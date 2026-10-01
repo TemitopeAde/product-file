@@ -2,6 +2,7 @@ import { acceptAttribute, formatBytes, isAcceptedFile } from '../../../../shared
 import type { CheckoutLineItemState, CheckoutState, UploadRecord } from '../../../../shared/types';
 import { api } from '../../../../site/api';
 import { BASE_STYLES, h } from '../../../../site/dom';
+import { icon } from '../../../../site/icons';
 import { errorMessage, liveFileItem, ruleSummary, savedFileItem, type LiveUpload } from '../../../../site/file-list';
 import { removeUpload, startUpload } from '../../../../site/upload-engine';
 
@@ -29,6 +30,8 @@ class CheckoutFileUpload extends HTMLElement {
   private refreshCheckout: (() => void) | null = null;
   private brand: SlotBrand = {};
   private reloadTimer: ReturnType<typeof setTimeout> | null = null;
+  private checkoutIdValue: string | null = null;
+  private checkoutUpdatedDateValue: string | null = null;
 
   constructor() {
     super();
@@ -39,8 +42,46 @@ class CheckoutFileUpload extends HTMLElement {
     this.refreshCheckout = callback;
   }
 
+  // Wix passes the checkout plugin API as properties on the element (and sometimes as kebab-case
+  // attributes), so `checkoutId` and `checkoutUpdatedDate` need setters, not read-only getters.
+  get checkoutId(): string | null {
+    return this.checkoutIdValue ?? this.getAttribute('checkout-id');
+  }
+
+  set checkoutId(value: string | null | undefined) {
+    const next = value ? String(value) : null;
+    if (next === this.checkoutIdValue) return;
+    this.checkoutIdValue = next;
+    this.scheduleLoad();
+  }
+
+  get checkoutUpdatedDate(): string | null {
+    return this.checkoutUpdatedDateValue ?? this.getAttribute('checkout-updated-date');
+  }
+
+  set checkoutUpdatedDate(value: string | Date | null | undefined) {
+    const next = value ? String(value) : null;
+    if (next === this.checkoutUpdatedDateValue) return;
+    this.checkoutUpdatedDateValue = next;
+    this.scheduleLoad();
+  }
+
   connectedCallback() {
+    // Values Wix assigned before this class was defined are own properties that shadow the
+    // setters above; re-assign them so they go through the setters.
+    for (const prop of ['checkoutId', 'checkoutUpdatedDate'] as const) {
+      if (Object.prototype.hasOwnProperty.call(this, prop)) {
+        const value = (this as Record<string, unknown>)[prop] as string | null;
+        delete (this as Record<string, unknown>)[prop];
+        this[prop] = value;
+      }
+    }
     void this.load();
+  }
+
+  private scheduleLoad() {
+    if (this.reloadTimer) clearTimeout(this.reloadTimer);
+    this.reloadTimer = setTimeout(() => void this.load(), 300);
   }
 
   attributeChangedCallback(name: string, _old: string | null, value: string | null) {
@@ -53,12 +94,7 @@ class CheckoutFileUpload extends HTMLElement {
       this.render();
       return;
     }
-    if (this.reloadTimer) clearTimeout(this.reloadTimer);
-    this.reloadTimer = setTimeout(() => void this.load(), 300);
-  }
-
-  private get checkoutId(): string | null {
-    return this.getAttribute('checkout-id');
+    this.scheduleLoad();
   }
 
   private async load() {
@@ -176,7 +212,9 @@ class CheckoutFileUpload extends HTMLElement {
     const checkoutId = this.checkoutId ?? '';
     const live = this.live.get(item.lineItemId) ?? [];
     const hasReady = item.files.some((f) => f.status === 'READY');
-    const full = item.files.length + live.filter((l) => l.phase !== 'error').length >= item.rule.maxFiles;
+    const activeCount = item.files.length + live.filter((l) => l.phase !== 'error').length;
+    const full = activeCount >= item.rule.maxFiles;
+    const required = item.rule.requirement === 'REQUIRED';
     const input = h('input', { type: 'file', tabindex: '-1', 'aria-hidden': 'true', class: 'pfu-sr', accept: acceptAttribute(item.rule.acceptedTypes), multiple: item.rule.maxFiles > 1, disabled: full }) as HTMLInputElement;
     input.addEventListener('change', () => {
       this.uploadFor(item, input.files);
@@ -191,30 +229,62 @@ class CheckoutFileUpload extends HTMLElement {
         'div',
         { class: 'pfu-row' },
         select,
-        h('button', { type: 'button', class: 'pfu-link', onclick: () => void this.mutate('/api/storefront/checkout/bind', { checkoutId, lineItemId: item.lineItemId, uploadId: select.value }, item.lineItemId) }, 'Attach'),
+        h('button', { type: 'button', class: 'pfu-secondary', onclick: () => void this.mutate('/api/storefront/checkout/bind', { checkoutId, lineItemId: item.lineItemId, uploadId: select.value }, item.lineItemId) }, icon('paperclip'), 'Attach'),
       );
     }
 
+    let upload: HTMLElement | null = null;
+    if (!full) {
+      upload = h(
+        'button',
+        { type: 'button', class: 'pfu-upload', onclick: () => input.click() },
+        h('span', { class: 'pfu-upload-label' }, icon('upload'), activeCount > 0 ? 'Upload another file' : 'Upload file'),
+        h('span', { class: 'pfu-meta' }, ruleSummary(item.rule)),
+      );
+      upload.addEventListener('dragover', (event) => {
+        event.preventDefault();
+        upload?.classList.add('is-over');
+      });
+      upload.addEventListener('dragleave', () => upload?.classList.remove('is-over'));
+      upload.addEventListener('drop', (event) => {
+        event.preventDefault();
+        upload?.classList.remove('is-over');
+        this.uploadFor(item, event.dataTransfer?.files ?? null);
+      });
+    }
+
+    const pill = hasReady
+      ? h('span', { class: 'pfu-pill is-done' }, icon('check'), 'Attached')
+      : required
+        ? h('span', { class: 'pfu-pill is-needed' }, 'Required')
+        : h('span', { class: 'pfu-pill' }, 'Optional');
+
     const error = this.errors.get(item.lineItemId);
     const files = [
-      ...item.files.map((f) => savedFileItem(f, h('button', { type: 'button', class: 'pfu-link', onclick: () => void this.removeFile(item, f) }, 'Remove'))),
+      ...item.files.map((f) =>
+        savedFileItem(
+          f,
+          h('span', { class: 'pfu-actions' }, h('button', { type: 'button', class: 'pfu-icon-button', 'aria-label': `Remove ${f.fileName}`, title: 'Remove file', onclick: () => void this.removeFile(item, f) }, icon('trash'))),
+        ),
+      ),
       ...live.map(liveFileItem),
     ];
     return h(
       'div',
-      { class: 'pfu', role: 'group', 'aria-label': item.name },
+      { class: 'pfu-item', role: 'group', 'aria-label': item.name },
       h(
-        'p',
-        { class: 'pfu-title' },
-        `${item.name}${item.quantity > 1 ? ` × ${item.quantity}` : ''}`,
-        item.rule.requirement === 'REQUIRED' ? h('span', { class: 'pfu-badge' }, hasReady ? 'Required ✓' : 'Required') : null,
+        'div',
+        { class: 'pfu-item-head' },
+        h('p', { class: 'pfu-item-name' }, item.name, item.quantity > 1 ? h('span', { class: 'pfu-qty' }, ` × ${item.quantity}`) : null),
+        pill,
       ),
       item.rule.instructions ? h('p', { class: 'pfu-help' }, item.rule.instructions) : null,
-      h('p', { class: 'pfu-meta' }, ruleSummary(item.rule)),
       files.length > 0 ? h('ul', { class: 'pfu-list' }, ...files) : null,
       attach,
-      full ? null : h('div', { class: 'pfu-row' }, input, h('button', { type: 'button', class: 'pfu-button', onclick: () => input.click() }, 'Upload file')),
-      error ? h('p', { class: 'pfu-error', role: 'alert' }, error) : null,
+      input,
+      upload,
+      full ? h('p', { class: 'pfu-meta' }, `File limit reached (${item.rule.maxFiles}).`) : null,
+      error ? h('p', { class: 'pfu-error', role: 'alert' }, icon('alert'), error) : null,
     );
   }
 
@@ -242,10 +312,10 @@ class CheckoutFileUpload extends HTMLElement {
       styles,
       h(
         'section',
-        { class: 'wrap', 'aria-label': state.text.checkoutTitle },
-        h('div', { class: 'pfu' }, h('h3', { class: 'pfu-title' }, state.text.checkoutTitle), state.text.checkoutHelp ? h('p', { class: 'pfu-help' }, state.text.checkoutHelp) : null),
-        ...state.lineItems.map((item) => this.itemCard(item, state.unboundUploads)),
-        globalError ? h('p', { class: 'pfu-error', role: 'alert' }, globalError) : null,
+        { class: 'wrap pfu-checkout', 'aria-label': state.text.checkoutTitle },
+        h('div', { class: 'pfu-head' }, h('h3', { class: 'pfu-title' }, state.text.checkoutTitle), state.text.checkoutHelp ? h('p', { class: 'pfu-help' }, state.text.checkoutHelp) : null),
+        h('div', { class: 'pfu-items' }, ...state.lineItems.map((item) => this.itemCard(item, state.unboundUploads))),
+        globalError ? h('p', { class: 'pfu-error', role: 'alert' }, icon('alert'), globalError) : null,
       ),
     );
   }

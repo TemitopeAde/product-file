@@ -78,6 +78,32 @@ describe('resolveAccess', () => {
     expect(resolveAccess(instance(paid('pro', 'IN_PROGRESS', '2026-09-01T00:00:00Z')), config, now).trialEndDate).toBeNull();
   });
 
+  it('grants unlimited access for the whole trial window and not after it', () => {
+    const during = resolveAccess(instance(paid('pro', 'IN_PROGRESS', '2026-10-05T00:00:00Z')), config, now);
+    expect(during.tier).toBe('PRO_TRIAL');
+    expect(during.unlimited).toBe(true);
+    expect(during.monthlyLimit).toBeNull();
+    expect(during.actions).toEqual([]);
+
+    const lastMoment = new Date('2026-10-04T23:59:59Z');
+    expect(resolveAccess(instance(paid('pro', 'IN_PROGRESS', '2026-10-05T00:00:00Z')), config, lastMoment).tier).toBe('PRO_TRIAL');
+
+    const pastEnd = new Date('2026-10-05T00:00:00Z');
+    const unconfigured = { ...config, proPlanPackageNames: [] };
+    const after = resolveAccess(instance(paid('pro', 'IN_PROGRESS', '2026-10-05T00:00:00Z')), unconfigured, pastEnd);
+    expect(after.tier).toBe('BASIC');
+    expect(after.monthlyLimit).toBe(10);
+  });
+
+  it('keeps Pro after a trial converts to a paid subscription', () => {
+    expect(resolveAccess(instance(paid('pro', 'ENDED', '2026-09-20T00:00:00Z')), config, now).tier).toBe('PRO');
+  });
+
+  it('honors an active trial even when the package name is not configured as Pro', () => {
+    expect(resolveAccess(instance(paid('Premium Monthly', 'IN_PROGRESS', '2026-10-05T00:00:00Z')), config, now).tier).toBe('PRO_TRIAL');
+    expect(resolveAccess(instance(paid('pro', 'IN_PROGRESS')), { ...config, proPlanPackageNames: [] }, now).tier).toBe('PRO_TRIAL');
+  });
+
   it('falls back to BASIC after a trial expires or a subscription is cancelled (isFree returns to true)', () => {
     const expired = instance({ isFree: true, billing: paid('pro', 'ENDED').billing });
     expect(resolveAccess(expired, config, now).tier).toBe('BASIC');

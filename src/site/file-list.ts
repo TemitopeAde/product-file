@@ -1,6 +1,7 @@
 import { formatBytes } from '../shared/file-rules';
 import type { StorefrontRule, UploadRecord } from '../shared/types';
 import { h } from './dom';
+import { icon } from './icons';
 
 export interface LiveUpload {
   key: string;
@@ -40,7 +41,8 @@ export function savedFileItem(upload: UploadRecord, actions: HTMLElement | null)
   const failed = upload.status === 'FAILED';
   return h(
     'li',
-    { class: 'pfu-file' },
+    { class: `pfu-file${upload.status === 'READY' ? ' is-ready' : ''}${failed ? ' is-failed' : ''}` },
+    h('span', { class: 'pfu-file-icon' }, icon(upload.status === 'READY' ? 'check' : failed ? 'alert' : 'file')),
     h('span', { class: 'pfu-name', title: upload.fileName }, upload.fileName),
     actions ?? h('span'),
     h('span', { class: `pfu-status${failed ? ' is-error' : ''}` }, `${STATUS_TEXT[upload.status]} · ${formatBytes(upload.sizeBytes)}`),
@@ -52,11 +54,16 @@ export function liveFileItem(live: LiveUpload): HTMLElement {
   const status = live.phase === 'uploading' ? `${PHASE_TEXT.uploading} ${percent}%` : live.error ?? PHASE_TEXT[live.phase];
   return h(
     'li',
-    { class: 'pfu-file', 'aria-busy': live.phase !== 'error' ? 'true' : 'false' },
+    { class: `pfu-file${live.phase === 'error' ? ' is-failed' : ''}`, 'aria-busy': live.phase !== 'error' ? 'true' : 'false' },
+    h('span', { class: 'pfu-file-icon' }, icon(live.phase === 'error' ? 'alert' : 'file')),
     h('span', { class: 'pfu-name', title: live.fileName }, live.fileName),
     live.phase === 'error'
       ? h('span')
-      : h('button', { type: 'button', class: 'pfu-link', onclick: () => live.cancel() }, 'Cancel'),
+      : h(
+          'span',
+          { class: 'pfu-actions' },
+          h('button', { type: 'button', class: 'pfu-icon-button', 'aria-label': `Cancel upload of ${live.fileName}`, title: 'Cancel upload', onclick: () => live.cancel() }, icon('x')),
+        ),
     h('span', { class: `pfu-status${live.phase === 'error' ? ' is-error' : ''}`, role: 'status' }, `${status} · ${formatBytes(live.sizeBytes)}`),
     live.phase === 'uploading' || live.phase === 'processing'
       ? h('div', { class: 'pfu-bar', role: 'progressbar', 'aria-valuenow': percent, 'aria-valuemin': 0, 'aria-valuemax': 100 }, h('span', { style: `width:${percent}%` }))

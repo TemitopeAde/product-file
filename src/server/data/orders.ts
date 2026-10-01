@@ -1,11 +1,11 @@
 import type { OrderSummary } from '../../shared/types';
-import { countItems, filter, findPage, getItem, insertItem, iso, num, query, saveItem, strOrNull, type DataItem } from './client';
+import { countItems, filter, findPage, getItem, insertItem, iso, num, orderNumberOrNull, patchIf, query, saveItem, set, type DataItem } from './client';
 import type { LinkResult } from './uploads';
 
 function toOrder(item: DataItem): OrderSummary {
   return {
     orderId: item._id,
-    orderNumber: strOrNull(item['orderNumber']),
+    orderNumber: orderNumberOrNull(item['orderNumber']),
     createdAt: iso(item['placedAt']),
     linkedFiles: num(item['linkedFiles']),
     unresolvedFiles: num(item['unresolvedFiles']),
@@ -31,6 +31,11 @@ export async function saveOrder(
 export async function getOrder(orderId: string): Promise<OrderSummary | null> {
   const item = await getItem('orders', orderId);
   return item ? toOrder(item) : null;
+}
+
+/** Records the order number Wix assigned after the order was saved. No-op if the order isn't tracked. */
+export async function setOrderNumber(orderId: string, orderNumber: string): Promise<void> {
+  await patchIf('orders', orderId, [set('orderNumber', orderNumber)], filter().ne('orderNumber', orderNumber));
 }
 
 export async function findOrderByNumber(orderNumber: string): Promise<OrderSummary | null> {

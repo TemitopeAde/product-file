@@ -9,6 +9,7 @@ import {
   isoOrNull,
   iso,
   num,
+  orderNumberOrNull,
   patchIf,
   query,
   set,
@@ -63,7 +64,7 @@ function toUpload(item: DataItem, now = Date.now()): UploadRow {
           lineItemId,
           cartId: str(item['cartId']),
           orderId: strOrNull(item['orderId']),
-          orderNumber: strOrNull(item['orderNumber']),
+          orderNumber: orderNumberOrNull(item['orderNumber']),
           linkStatus: LINK_STATUSES.includes(linkStatus) ? linkStatus : 'PENDING',
         }
       : null,
@@ -250,6 +251,12 @@ export async function linkOrder(
     if (claimed) result[exact ? 'linked' : 'unresolved'] += 1;
   }
   return result;
+}
+
+/** Copies a newly assigned order number onto the order's linked files. */
+export async function setOrderNumberForOrder(orderId: string, orderNumber: string): Promise<void> {
+  const stale = await findAll('uploads', query('uploads').eq('orderId', orderId).ne('orderNumber', orderNumber), true, 500);
+  for (const item of stale) await patchUpload(item._id, [set('orderNumber', orderNumber)], filter().eq('orderId', orderId));
 }
 
 export async function uploadsForOrder(orderId: string): Promise<UploadRow[]> {

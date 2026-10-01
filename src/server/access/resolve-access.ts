@@ -78,11 +78,16 @@ export function resolveAccess(input: InstanceBillingInput, config: AccessConfig,
   const isProPackage = packageName !== null && proNames.has(normalizePlanName(packageName));
   const trialStatus = toTrialStatus(billing?.freeTrialStatus ?? null);
   const trialEligible = input.freeTrialAvailable === true;
+  const trialEnd = validIso(billing?.freeTrialEndDate ?? null);
+  // A trial grants Pro access for exactly as long as Wix reports it running: until its end date
+  // when Wix supplies one. Basic is the only free plan, so any trialing package is a Pro trial,
+  // even when PRO_PLAN_PACKAGE_NAMES is missing or doesn't list it.
+  const trialActive = trialStatus === 'IN_PROGRESS' && (trialEnd === null || Date.parse(trialEnd) > now.getTime());
 
   let tier: AccessTier;
   if (isVerifiedWixEmail(input.ownerEmail, input.ownerEmailStatus)) {
     tier = 'INTERNAL_WIX';
-  } else if (isProPackage && trialStatus === 'IN_PROGRESS') {
+  } else if (trialActive) {
     tier = 'PRO_TRIAL';
   } else if (isProPackage) {
     tier = 'PRO';
@@ -91,9 +96,7 @@ export function resolveAccess(input: InstanceBillingInput, config: AccessConfig,
   }
 
   const unlimited = tier !== 'BASIC';
-  const trialEnd = validIso(billing?.freeTrialEndDate ?? null);
-  const reliableTrialEnd =
-    tier === 'PRO_TRIAL' && trialEnd !== null && Date.parse(trialEnd) > now.getTime() ? trialEnd : null;
+  const reliableTrialEnd = tier === 'PRO_TRIAL' ? trialEnd : null;
 
   const actions: BillingAction[] = [];
   if (tier === 'BASIC') {

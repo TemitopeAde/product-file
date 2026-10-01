@@ -128,6 +128,29 @@ export interface OrderDetail {
   files: UploadRecord[];
 }
 
+export interface WixOrderLineItem {
+  id: string;
+  name: string;
+  quantity: number;
+  price: string | null;
+  total: string | null;
+  image: string | null;
+  options: string[];
+}
+
+export interface WixOrderDetails {
+  id: string;
+  number: string | null;
+  createdAt: string | null;
+  status: string;
+  paymentStatus: string;
+  fulfillmentStatus: string;
+  buyer: { name: string | null; email: string | null };
+  buyerNote: string | null;
+  totals: { subtotal: string | null; shipping: string | null; tax: string | null; discount: string | null; total: string | null };
+  lineItems: WixOrderLineItem[];
+}
+
 export interface OrderFilesPage extends OrderDetail {
   nextCursor: string | null;
 }

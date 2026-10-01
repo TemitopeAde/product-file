@@ -12,6 +12,8 @@ import requiredFiles from './extensions/backend/service-plugins/required-files/r
 
 import orderCreated from './extensions/backend/events/order-created/order-created.extension.ts';
 
+import orderUpdated from './extensions/backend/events/order-updated/order-updated.extension.ts';
+
 import appInstalled from './extensions/backend/events/app-installed/app-installed.extension.ts';
 
 import fileReady from './extensions/backend/events/file-ready/file-ready.extension.ts';
@@ -30,6 +32,7 @@ export default app()
   .use(customerFiles)
   .use(requiredFiles)
   .use(orderCreated)
+  .use(orderUpdated)
   .use(appInstalled)
   .use(fileReady)
   .use(fileTools)

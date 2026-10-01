@@ -1,4 +1,5 @@
 import { orders } from '@wix/ecom';
+import { orderNumberOrNull } from '../../../../server/data/client';
 import { handleOrderCreated } from '../../../../server/services/orders';
 
 export default orders.onOrderCreated(async (event) => {
@@ -8,7 +9,7 @@ export default orders.onOrderCreated(async (event) => {
   try {
     await handleOrderCreated({
       orderId: order._id,
-      orderNumber: order.number ?? null,
+      orderNumber: orderNumberOrNull(order.number),
       checkoutId: order.checkoutId ?? null,
       purchaseFlowId: order.purchaseFlowId ?? null,
       createdAt: order._createdDate ?? new Date(),

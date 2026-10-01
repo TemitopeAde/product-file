@@ -1,6 +1,7 @@
 import { markCheckoutVerified } from '../data/settings';
-import { saveOrder, wasValidationObserved } from '../data/orders';
-import { countOrderLinks, linkOrder } from '../data/uploads';
+import { getOrder, saveOrder, setOrderNumber, wasValidationObserved } from '../data/orders';
+import { countOrderLinks, linkOrder, setOrderNumberForOrder } from '../data/uploads';
+import { fetchWixOrder } from '../wix/orders';
 
 export interface CreatedOrder {
   orderId: string;
@@ -19,8 +20,10 @@ export interface CreatedOrder {
  * this purchase flow with a ready bound file and every bound file linked to the order by exact
  * line-item ID. Only then can merchants turn on required uploads.
  */
-export async function handleOrderCreated(order: CreatedOrder): Promise<void> {
-  if (!order.checkoutId && !order.purchaseFlowId) return;
+export async function handleOrderCreated(created: CreatedOrder): Promise<void> {
+  if (!created.checkoutId && !created.purchaseFlowId) return;
+  // The created event can carry "0" before Wix assigns the number; ask Wix for the current one.
+  const order = created.orderNumber ? created : { ...created, orderNumber: (await fetchWixOrder(created.orderId))?.number ?? null };
   await linkOrder(order, order.lineItems);
   const totals = await countOrderLinks(order.orderId);
   if (totals.linked + totals.unresolved === 0) return;
@@ -32,4 +35,12 @@ export async function handleOrderCreated(order: CreatedOrder): Promise<void> {
   if (order.purchaseFlowId && (await wasValidationObserved(order.purchaseFlowId))) {
     await markCheckoutVerified(order.orderId);
   }
+}
+
+/** Backfills a number Wix assigned after the order was created. Untracked orders are left alone. */
+export async function syncOrderNumber(orderId: string, orderNumber: string | null): Promise<void> {
+  if (!orderNumber) return;
+  const stored = await getOrder(orderId);
+  if (!stored || stored.orderNumber === orderNumber) return;
+  await Promise.all([setOrderNumber(orderId, orderNumber), setOrderNumberForOrder(orderId, orderNumber)]);
 }

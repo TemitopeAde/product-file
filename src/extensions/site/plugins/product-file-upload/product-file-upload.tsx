@@ -20,6 +20,51 @@ function log(message: string, details?: Record<string, boolean | number | string
   console.info(`${LOG_PREFIX} ${message}${suffix}`);
 }
 
+// Add to Cart / Buy Now buttons on the old and new Stores product pages. The text match is a
+// fallback for themes whose buttons carry no recognizable data-hook.
+const CART_BUTTON_SELECTOR = '[data-hook*="add-to-cart"], [data-hook*="buy-now"], [data-hook*="addToCart"], [data-hook*="buyNow"]';
+const CART_BUTTON_TEXT = /\b(add to cart|buy now)\b/i;
+const UPLOADED_STATUSES = new Set<UploadRecord['status']>(['PROCESSING', 'READY']);
+
+function isCartButton(target: EventTarget): boolean {
+  if (!(target instanceof HTMLElement)) return false;
+  if (target.matches(CART_BUTTON_SELECTOR)) return true;
+  const isButton = target.tagName === 'BUTTON' || target.getAttribute('role') === 'button';
+  return isButton && CART_BUTTON_TEXT.test(target.textContent ?? '');
+}
+
+const LOCKED_ATTRIBUTE = 'data-pfu-locked';
+const ORIGINAL_ARIA_ATTRIBUTE = 'data-pfu-aria-disabled';
+
+function findCartButtons(): HTMLElement[] {
+  const candidates = document.querySelectorAll<HTMLElement>(`${CART_BUTTON_SELECTOR}, button, [role="button"]`);
+  return Array.from(candidates).filter(isCartButton);
+}
+
+/** Makes a host Add to Cart button look and announce as disabled. Clicks are still stopped by the click guard. */
+function lockCartButton(button: HTMLElement, reason: string) {
+  if (!button.hasAttribute(LOCKED_ATTRIBUTE)) {
+    button.setAttribute(LOCKED_ATTRIBUTE, '');
+    button.setAttribute(ORIGINAL_ARIA_ATTRIBUTE, button.getAttribute('aria-disabled') ?? '');
+  }
+  if (button.getAttribute('aria-disabled') !== 'true') button.setAttribute('aria-disabled', 'true');
+  if (button.title !== reason) button.title = reason;
+  if (button.style.getPropertyValue('opacity') !== '0.5') button.style.setProperty('opacity', '0.5', 'important');
+  if (button.style.getPropertyValue('cursor') !== 'not-allowed') button.style.setProperty('cursor', 'not-allowed', 'important');
+}
+
+function unlockCartButton(button: HTMLElement) {
+  if (!button.hasAttribute(LOCKED_ATTRIBUTE)) return;
+  const original = button.getAttribute(ORIGINAL_ARIA_ATTRIBUTE);
+  if (original) button.setAttribute('aria-disabled', original);
+  else button.removeAttribute('aria-disabled');
+  button.removeAttribute(LOCKED_ATTRIBUTE);
+  button.removeAttribute(ORIGINAL_ARIA_ATTRIBUTE);
+  button.removeAttribute('title');
+  button.style.removeProperty('opacity');
+  button.style.removeProperty('cursor');
+}
+
 function logError(message: string, error: unknown) {
   const detail = error instanceof Error ? `${error.name}: ${error.message}` : String(error);
   console.error(`${LOG_PREFIX} ${message} ${detail}`);
@@ -46,6 +91,10 @@ class ProductFileUpload extends HTMLElement {
   private iconRoots: Root[] = [];
   private wixDesignHtml = '';
   private wixDesignRequest = 0;
+  private readonly guardCartClick = (event: Event) => this.handleCartClick(event);
+  private cartButtonObserver: MutationObserver | null = null;
+  private cartSyncFrame = 0;
+  private lastCartLockState: string | null = null;
 
   constructor() {
     super();
@@ -61,19 +110,32 @@ class ProductFileUpload extends HTMLElement {
     });
     try {
       const viewMode = await wixWindow.viewMode();
-      this.isEditor = viewMode !== 'Site';
+      // Preview behaves like the live site for shoppers; only the Editor itself is inert.
+      this.isEditor = viewMode === 'Editor';
       log('view mode resolved', { viewMode, isEditor: this.isEditor });
     } catch (error) {
       this.isEditor = false;
       logError('view mode lookup failed; assuming published site mode.', error);
     }
     applyDesign(this, readDesign(this));
+    if (!this.isEditor) {
+      window.addEventListener('click', this.guardCartClick, true);
+      // The product page re-renders its buttons (variant changes, stock updates), so re-apply the lock.
+      this.cartButtonObserver = new MutationObserver(() => this.scheduleCartButtonSync());
+      this.cartButtonObserver.observe(document.body, { childList: true, subtree: true, attributes: true, attributeFilter: ['aria-disabled', 'style'] });
+      log('add to cart guard active');
+    }
     void this.loadWixDesignResources();
     void this.load();
   }
 
   disconnectedCallback() {
     log('disconnected');
+    window.removeEventListener('click', this.guardCartClick, true);
+    this.cartButtonObserver?.disconnect();
+    this.cartButtonObserver = null;
+    cancelAnimationFrame(this.cartSyncFrame);
+    findCartButtons().forEach(unlockCartButton);
     this.clearActionIcons();
     this.toasterRoot?.unmount();
     this.toasterRoot = null;
@@ -176,6 +238,65 @@ class ProductFileUpload extends HTMLElement {
     }
   }
 
+  /** Why adding to cart must wait, or null when it may proceed. */
+  private cartBlockReason(): string | null {
+    // Any product with uploads turned on needs a file before it can be added to the cart,
+    // whether its rule is Optional or Required.
+    if (!this.config?.enabled || !this.config.rule) return null;
+    if (this.live.some((l) => l.phase !== 'error')) return 'Please wait for your file to finish uploading before adding this item to your cart.';
+    if (!this.saved.some((u) => UPLOADED_STATUSES.has(u.status))) return 'Please upload your file before adding this item to your cart.';
+    return null;
+  }
+
+  private scheduleCartButtonSync() {
+    if (this.cartSyncFrame) return;
+    this.cartSyncFrame = requestAnimationFrame(() => {
+      this.cartSyncFrame = 0;
+      this.syncCartButtons();
+    });
+  }
+
+  private syncCartButtons() {
+    if (this.isEditor) return;
+    const reason = this.cartBlockReason();
+    const buttons = findCartButtons();
+    const lockState = `${reason ?? 'unlocked'}|${buttons.length}`;
+    if (lockState !== this.lastCartLockState) {
+      this.lastCartLockState = lockState;
+      log(reason ? 'add to cart locked' : 'add to cart unlocked', {
+        requirement: this.config?.enabled ? (this.config.rule?.requirement ?? null) : 'UPLOADS_OFF',
+        cartButtonsFound: buttons.length,
+      });
+    }
+    for (const button of buttons) {
+      if (reason) lockCartButton(button, reason);
+      else unlockCartButton(button);
+    }
+  }
+
+  // Runs in the capture phase on `window`, so it sees the click before the product page does.
+  private handleCartClick(event: Event) {
+    const path = event.composedPath();
+    if (path.includes(this) || !path.some(isCartButton)) return;
+    const reason = this.cartBlockReason();
+    if (!reason) {
+      log('add to cart allowed', {
+        requirement: this.config?.enabled ? (this.config.rule?.requirement ?? null) : 'UPLOADS_OFF',
+        uploadedFiles: this.saved.filter((u) => UPLOADED_STATUSES.has(u.status)).length,
+        uploadsInProgress: this.live.filter((l) => l.phase !== 'error').length,
+      });
+      return;
+    }
+    event.preventDefault();
+    event.stopPropagation();
+    event.stopImmediatePropagation();
+    log('add to cart blocked until a required file is uploaded', { productId: this.currentProductId });
+    this.error = reason;
+    toast.error(reason);
+    this.render();
+    this.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  }
+
   private slotsLeft(): number {
     const rule = this.config?.rule;
     if (!rule) return 0;
@@ -241,6 +362,7 @@ class ProductFileUpload extends HTMLElement {
       .then((record) => {
         this.live = this.live.filter((l) => l !== live);
         this.saved = [...this.saved.filter((u) => u.id !== record.id), record];
+        if (this.error && !this.cartBlockReason()) this.error = null;
         toast.success(successMessage);
         this.render();
       })
@@ -372,6 +494,7 @@ class ProductFileUpload extends HTMLElement {
           ? h('p', { class: 'pfu-error' }, this.error)
           : null;
       this.root.replaceChildren(...wixDesignNodes, style, ...(placeholder ? [placeholder] : []), toasterHost);
+      this.syncCartButtons();
       return;
     }
     const rule = config.rule;
@@ -426,6 +549,7 @@ class ProductFileUpload extends HTMLElement {
       ),
       toasterHost,
     );
+    this.syncCartButtons();
   }
 }
 
