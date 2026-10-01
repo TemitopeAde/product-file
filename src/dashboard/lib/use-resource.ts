@@ -1,9 +1,9 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { api, errorText } from './api';
+import { api } from './api';
 
 export interface Resource<T> {
   data: T | null;
-  error: string | null;
+  error: unknown | null;
   loading: boolean;
   reload: () => void;
   setData: (data: T) => void;
@@ -12,7 +12,7 @@ export interface Resource<T> {
 /** Loads a GET endpoint and re-fetches whenever `path` changes; stale responses are ignored. */
 export function useResource<T>(path: string | null): Resource<T> {
   const [data, setData] = useState<T | null>(null);
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError] = useState<unknown | null>(null);
   const [loading, setLoading] = useState<boolean>(path !== null);
   const [nonce, setNonce] = useState(0);
   const latest = useRef(0);
@@ -29,7 +29,7 @@ export function useResource<T>(path: string | null): Resource<T> {
       })
       .catch((err: unknown) => {
         if (request !== latest.current) return;
-        setError(errorText(err));
+        setError(err);
       })
       .finally(() => {
         if (request === latest.current) setLoading(false);

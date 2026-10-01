@@ -130,7 +130,7 @@ export interface OrderDetail {
 
 export interface WixOrderLineItem {
   id: string;
-  name: string;
+  name: string | null;
   quantity: number;
   price: string | null;
   total: string | null;

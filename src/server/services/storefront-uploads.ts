@@ -1,5 +1,5 @@
 import type { ReserveUploadRequest, UploadRecord, UploadSession } from '../../shared/types';
-import { isAcceptedFile } from '../../shared/file-rules';
+import { checkFile } from '../../shared/file-rules';
 import type { Caller } from '../auth';
 import { RESERVATION_TTL_MS, VISITOR_ACTIVE_UPLOAD_CAP, VISITOR_DAILY_UPLOAD_CAP } from '../config';
 import { claimQuotaSlot, releaseSlot } from '../data/quota';
@@ -30,12 +30,14 @@ const expired = () => new ApiError('RESERVATION_EXPIRED', 'This upload expired. 
 export async function reserveUpload(caller: Caller, req: ReserveUploadRequest): Promise<UploadSession> {
   const rule = await getRule(req.productId);
   if (!rule || !rule.enabled) throw new ApiError('UPLOADS_NOT_ENABLED', 'File uploads are not available for this product.');
-  if (!isAcceptedFile(req.fileName, req.mimeType, rule.acceptedTypes)) {
-    throw new ApiError('FILE_TYPE_NOT_ACCEPTED', 'This file type is not accepted for this product.');
+  const check = checkFile({ name: req.fileName, type: req.mimeType, size: req.sizeBytes }, rule);
+  if (!check.ok) {
+    if (check.reason === 'UNSUPPORTED_BY_WIX') throw new ApiError('FILE_TYPE_NOT_ACCEPTED', 'Wix doesn’t accept this file format.');
+    if (check.reason === 'NOT_ACCEPTED') throw new ApiError('FILE_TYPE_NOT_ACCEPTED', 'This file type is not accepted for this product.');
+    throw new ApiError('FILE_TOO_LARGE', 'This file is larger than the store allows.', { maxBytes: check.maxBytes });
   }
-  if (req.sizeBytes > rule.maxFileSizeBytes) {
-    throw new ApiError('FILE_TOO_LARGE', 'This file is larger than the store allows.', { maxBytes: rule.maxFileSizeBytes });
-  }
+  // Wix rejects MIME types that do not match the extension, so the canonical type is declared.
+  const mimeType = check.mimeType;
 
   let binding: { cartId: string; purchaseFlowId: string | null; lineItemId: string } | null = null;
   if (req.source === 'CHECKOUT') {
@@ -71,7 +73,7 @@ export async function reserveUpload(caller: Caller, req: ReserveUploadRequest): 
     variantId: req.variantId,
     source: req.source,
     fileName: req.fileName,
-    mimeType: req.mimeType,
+    mimeType,
     declaredSizeBytes: req.sizeBytes,
     maxFileSizeBytes: rule.maxFileSizeBytes,
     reservationLabel: label,
@@ -96,7 +98,7 @@ export async function reserveUpload(caller: Caller, req: ReserveUploadRequest): 
   }
 
   try {
-    const wixSession = await createResumableUpload(req.mimeType, req.fileName, label);
+    const wixSession = await createResumableUpload(mimeType, req.fileName, label);
     await uploads.setSession(id, wixSession.uploadUrl, wixSession.uploadToken, expiresAt, slotId);
     if (binding) await uploads.bindToLineItem(id, binding);
   } catch (error) {

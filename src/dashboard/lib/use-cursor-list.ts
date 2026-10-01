@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
-import { api, errorText } from './api';
+import { api } from './api';
 
 interface CursorPage {
   nextCursor: string | null;
@@ -12,7 +12,7 @@ export function useCursorList<P extends CursorPage, T>(path: string, pick: (page
   const [cursor, setCursor] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError] = useState<unknown | null>(null);
   const [nonce, setNonce] = useState(0);
 
   useEffect(() => {
@@ -29,7 +29,7 @@ export function useCursorList<P extends CursorPage, T>(path: string, pick: (page
         setCursor(page.nextCursor);
         setError(null);
       })
-      .catch((err: unknown) => active && setError(errorText(err)))
+      .catch((err: unknown) => active && setError(err))
       .finally(() => active && setLoading(false));
     return () => {
       active = false;
@@ -47,7 +47,7 @@ export function useCursorList<P extends CursorPage, T>(path: string, pick: (page
       setItems((current) => [...current, ...pick(page)]);
       setCursor(page.nextCursor);
     } catch (err) {
-      setError(errorText(err));
+      setError(err);
     } finally {
       setLoadingMore(false);
     }

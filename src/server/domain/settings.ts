@@ -1,5 +1,5 @@
 import type { AppSettings, RuleDefaults, StorefrontText } from '../../shared/types';
-import { MAX_ACCEPTED_TYPES, MAX_FILE_SIZE_CAP_BYTES, MAX_FILES_CAP, normalizeAcceptedType } from '../../shared/file-rules';
+import { isSupportedAcceptedType, MAX_ACCEPTED_TYPES, MAX_FILE_SIZE_CAP_BYTES, MAX_FILES_CAP, normalizeAcceptedType } from '../../shared/file-rules';
 import { ApiError } from '../errors';
 
 export const DEFAULT_SETTINGS: AppSettings = {
@@ -92,6 +92,7 @@ export function parseAcceptedTypes(value: unknown): string[] {
   for (const item of value) {
     const token = typeof item === 'string' ? normalizeAcceptedType(item) : null;
     if (!token) throw new ApiError('INVALID_REQUEST', `"${String(item)}" is not a MIME type (image/png, image/*) or extension (.pdf).`);
+    if (!isSupportedAcceptedType(token)) throw new ApiError('INVALID_REQUEST', `Wix Media doesn’t accept "${token}" files.`);
     if (!normalized.includes(token)) normalized.push(token);
   }
   if (normalized.length === 0) throw new ApiError('INVALID_REQUEST', 'Choose at least one accepted file type.');

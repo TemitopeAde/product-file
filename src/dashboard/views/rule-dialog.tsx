@@ -1,7 +1,7 @@
 import { Lock } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { toast } from 'sonner';
-import { MAX_FILES_CAP } from '../../shared/file-rules';
+import { MAX_FILE_SIZE_CAP_BYTES, MAX_FILES_CAP } from '../../shared/file-rules';
 import type { ProductRule, ProductRuleInput, ProductSummary, RuleDefaults } from '../../shared/types';
 import { AcceptedTypesField } from '../components/accepted-types-field';
 import { Button } from '../components/ui/button';
@@ -9,7 +9,8 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Input, Textarea } from '../components/ui/input';
 import { Label } from '../components/ui/label';
 import { Switch } from '../components/ui/switch';
-import { api, errorText } from '../lib/api';
+import { useI18n } from '../i18n/runtime';
+import { api } from '../lib/api';
 
 const MB = 1024 * 1024;
 
@@ -22,6 +23,7 @@ interface RuleDialogProps {
 }
 
 export function RuleDialog({ product, defaults, checkoutVerified, onClose, onSaved }: RuleDialogProps) {
+  const { m, fill, errorMessage } = useI18n();
   const [form, setForm] = useState<ProductRuleInput | null>(null);
   const [sizeMb, setSizeMb] = useState('');
   const [saving, setSaving] = useState(false);
@@ -42,7 +44,7 @@ export function RuleDialog({ product, defaults, checkoutVerified, onClose, onSav
   const save = async () => {
     const bytes = Math.round(Number(sizeMb) * MB);
     if (!Number.isFinite(bytes) || bytes <= 0) {
-      toast.error('Enter a maximum file size.');
+      toast.error(m.toasts.enterMaxSize);
       return;
     }
     setSaving(true);
@@ -51,10 +53,10 @@ export function RuleDialog({ product, defaults, checkoutVerified, onClose, onSav
         method: 'PUT',
         body: { ...form, maxFileSizeBytes: bytes },
       });
-      toast.success('Upload settings saved');
+      toast.success(m.toasts.uploadSettingsSaved);
       onSaved(product.id, saved);
     } catch (error) {
-      toast.error(errorText(error));
+      toast.error(errorMessage(error));
     } finally {
       setSaving(false);
     }
@@ -64,10 +66,10 @@ export function RuleDialog({ product, defaults, checkoutVerified, onClose, onSav
     setSaving(true);
     try {
       await api(`/api/products/${encodeURIComponent(product.id)}/rule`, { method: 'DELETE' });
-      toast.success('Uploads turned off for this product');
+      toast.success(m.toasts.uploadsTurnedOff);
       onSaved(product.id, null);
     } catch (error) {
-      toast.error(errorText(error));
+      toast.error(errorMessage(error));
     } finally {
       setSaving(false);
     }
@@ -77,21 +79,21 @@ export function RuleDialog({ product, defaults, checkoutVerified, onClose, onSav
     <Dialog open onOpenChange={(open) => !open && !saving && onClose()}>
       <DialogContent className="max-w-xl">
         <DialogHeader>
-          <DialogTitle>File uploads for “{product.name}”</DialogTitle>
-          <DialogDescription>Customers upload these files on the product page or at checkout. Files are stored privately in your Media Manager.</DialogDescription>
+          <DialogTitle>{fill(m.rule.title, { name: product.name })}</DialogTitle>
+          <DialogDescription>{m.rule.description}</DialogDescription>
         </DialogHeader>
 
         <div className="flex flex-col gap-5">
           <div className="flex items-center justify-between gap-4 rounded-lg border p-3">
             <div>
-              <Label htmlFor="rule-enabled">Accept files for this product</Label>
-              <p className="text-xs text-muted-foreground">Turning this off hides the uploader. Existing files are kept.</p>
+              <Label htmlFor="rule-enabled">{m.rule.accept}</Label>
+              <p className="text-xs text-muted-foreground">{m.rule.acceptHelp}</p>
             </div>
             <Switch id="rule-enabled" checked={form.enabled} onCheckedChange={(enabled) => update({ enabled })} />
           </div>
 
           <fieldset className="flex flex-col gap-2">
-            <legend className="mb-2 text-sm font-medium">Requirement</legend>
+            <legend className="mb-2 text-sm font-medium">{m.rule.requirement}</legend>
             {(['OPTIONAL', 'REQUIRED'] as const).map((value) => {
               const locked = value === 'REQUIRED' && requiredLocked;
               return (
@@ -99,15 +101,15 @@ export function RuleDialog({ product, defaults, checkoutVerified, onClose, onSav
                   <input type="radio" name="requirement" className="mt-1" checked={form.requirement === value} disabled={locked} onChange={() => update({ requirement: value })} />
                   <span>
                     <span className="flex items-center gap-2 text-sm font-medium">
-                      {value === 'OPTIONAL' ? 'Optional' : 'Required — block checkout without a file'}
+                      {value === 'OPTIONAL' ? m.rule.optional : m.rule.required}
                       {locked ? <Lock className="size-3.5" aria-hidden /> : null}
                     </span>
                     <span className="block text-xs text-muted-foreground">
                       {value === 'OPTIONAL'
-                        ? 'Customers can add files, but can order without them.'
+                        ? m.rule.optionalHelp
                         : locked
-                          ? 'Available after a test order proves the checkout flow on your site (Settings → Checkout verification).'
-                          : 'Checkout shows an error on this item until a file is uploaded and ready.'}
+                          ? m.rule.requiredLocked
+                          : m.rule.requiredHelp}
                     </span>
                   </span>
                 </label>
@@ -115,30 +117,30 @@ export function RuleDialog({ product, defaults, checkoutVerified, onClose, onSav
             })}
           </fieldset>
 
-          <AcceptedTypesField id="rule-accepted-types" types={form.acceptedTypes} onChange={(acceptedTypes) => update({ acceptedTypes })} />
+          <AcceptedTypesField id="rule-accepted-types" types={form.acceptedTypes} maxFileSizeBytes={Math.round(Number(sizeMb) * MB) || undefined} onChange={(acceptedTypes) => update({ acceptedTypes })} />
 
           <div className="grid gap-4 sm:grid-cols-2">
             <div className="flex flex-col gap-2">
-              <Label htmlFor="rule-size">Maximum file size (MB)</Label>
-              <Input id="rule-size" type="number" min={0.1} max={1024} step={0.1} value={sizeMb} onChange={(e) => setSizeMb(e.target.value)} />
+              <Label htmlFor="rule-size">{m.rule.maxSize}</Label>
+              <Input id="rule-size" type="number" min={0.1} max={MAX_FILE_SIZE_CAP_BYTES / MB} step={0.1} value={sizeMb} onChange={(e) => setSizeMb(e.target.value)} />
             </div>
             <div className="flex flex-col gap-2">
-              <Label htmlFor="rule-count">Maximum files per item</Label>
+              <Label htmlFor="rule-count">{m.rule.maxFiles}</Label>
               <Input id="rule-count" type="number" min={1} max={MAX_FILES_CAP} value={form.maxFiles} onChange={(e) => update({ maxFiles: Math.max(1, Math.min(MAX_FILES_CAP, Number.parseInt(e.target.value, 10) || 1)) })} />
             </div>
           </div>
 
           <div className="flex flex-col gap-2">
-            <Label htmlFor="rule-instructions">Instructions for customers (optional)</Label>
-            <Textarea id="rule-instructions" maxLength={500} value={form.instructions} placeholder="e.g. Upload a high-resolution PNG, at least 3000 px wide." onChange={(e) => update({ instructions: e.target.value })} />
+            <Label htmlFor="rule-instructions">{m.rule.instructions}</Label>
+            <Textarea id="rule-instructions" maxLength={500} value={form.instructions} placeholder={m.rule.instructionsPlaceholder} onChange={(e) => update({ instructions: e.target.value })} />
           </div>
         </div>
 
         <DialogFooter className="sm:justify-between">
-          {product.rule ? <Button variant="ghost" className="text-destructive" disabled={saving} onClick={() => void remove()}>Remove settings</Button> : <span />}
+          {product.rule ? <Button variant="ghost" className="text-destructive" disabled={saving} onClick={() => void remove()}>{m.rule.remove}</Button> : <span />}
           <div className="flex gap-2">
-            <Button variant="outline" disabled={saving} onClick={onClose}>Cancel</Button>
-            <Button disabled={saving || form.acceptedTypes.length === 0} onClick={() => void save()}>{saving ? 'Saving…' : 'Save'}</Button>
+            <Button variant="outline" disabled={saving} onClick={onClose}>{m.common.cancel}</Button>
+            <Button disabled={saving || form.acceptedTypes.length === 0} onClick={() => void save()}>{saving ? m.common.saving : m.common.save}</Button>
           </div>
         </DialogFooter>
       </DialogContent>

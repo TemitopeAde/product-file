@@ -1,4 +1,4 @@
-import { formatBytes } from '../shared/file-rules';
+import { describeAcceptedTypes, fileExtension, formatBytes, wixFormatFor, type FileCheck } from '../shared/file-rules';
 import type { StorefrontRule, UploadRecord } from '../shared/types';
 import { h } from './dom';
 import { icon } from './icons';
@@ -33,8 +33,27 @@ const PHASE_TEXT: Record<LiveUpload['phase'], string> = {
 };
 
 export function ruleSummary(rule: StorefrontRule): string {
-  const types = rule.acceptedTypes.map((t) => (t.endsWith('/*') ? `${t.slice(0, -2)} files` : t.startsWith('.') ? t.slice(1).toUpperCase() : t.split('/')[1]?.toUpperCase() ?? t));
+  const types = describeAcceptedTypes(rule.acceptedTypes);
   return `${types.join(', ')} · up to ${formatBytes(rule.maxFileSizeBytes)} each · up to ${rule.maxFiles} file${rule.maxFiles === 1 ? '' : 's'}`;
+}
+
+/** Customer-facing reason a chosen file can't be uploaded. */
+export function fileCheckMessage(fileName: string, check: Exclude<FileCheck, { ok: true }>): string {
+  const ext = fileExtension(fileName)?.slice(1).toUpperCase() ?? 'this';
+  switch (check.reason) {
+    case 'UNSUPPORTED_BY_WIX':
+      return `"${fileName}" can’t be uploaded: ${ext} files aren’t supported.`;
+    case 'NOT_ACCEPTED':
+      return `"${fileName}" isn’t an accepted file type for this item.`;
+    case 'TOO_LARGE':
+      return check.limitedByWix
+        ? `"${fileName}" is larger than ${formatBytes(check.maxBytes)}, the limit for ${wixFormatFor(fileName)?.group.name ?? ext} files.`
+        : `"${fileName}" is larger than ${formatBytes(check.maxBytes)}.`;
+    default: {
+      const exhaustive: never = check;
+      return exhaustive;
+    }
+  }
 }
 
 export function savedFileItem(upload: UploadRecord, actions: HTMLElement | null): HTMLElement {

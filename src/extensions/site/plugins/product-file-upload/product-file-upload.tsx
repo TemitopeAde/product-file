@@ -5,11 +5,11 @@ import { RefreshCw, Trash2, type LucideIcon } from 'lucide-react';
 import { Toaster, toast } from 'sonner';
 import { site } from '@wix/site-site';
 import { window as wixWindow } from '@wix/site-window';
-import { acceptAttribute, formatBytes, isAcceptedFile } from '../../../../shared/file-rules';
+import { acceptAttribute, checkFile } from '../../../../shared/file-rules';
 import type { StorefrontProductConfig, UploadRecord } from '../../../../shared/types';
 import { api } from '../../../../site/api';
 import { BASE_STYLES, h } from '../../../../site/dom';
-import { errorMessage, liveFileItem, ruleSummary, savedFileItem, type LiveUpload } from '../../../../site/file-list';
+import { errorMessage, fileCheckMessage, liveFileItem, ruleSummary, savedFileItem, type LiveUpload } from '../../../../site/file-list';
 import { removeUpload, startUpload } from '../../../../site/upload-engine';
 import { applyDesign, DESIGN_PROPS, isDesignProp, readDesign, selectedFonts } from './product-file-upload.design';
 
@@ -314,12 +314,9 @@ class ProductFileUpload extends HTMLElement {
         this.error = `You can upload up to ${rule.maxFiles} file(s) for this item.`;
         break;
       }
-      if (!isAcceptedFile(file.name, file.type || 'application/octet-stream', rule.acceptedTypes)) {
-        this.error = `"${file.name}" isn’t an accepted file type.`;
-        continue;
-      }
-      if (file.size > rule.maxFileSizeBytes) {
-        this.error = `"${file.name}" is larger than ${formatBytes(rule.maxFileSizeBytes)}.`;
+      const check = checkFile(file, rule);
+      if (!check.ok) {
+        this.error = fileCheckMessage(file.name, check);
         continue;
       }
       this.upload(file, productId);
@@ -393,14 +390,9 @@ class ProductFileUpload extends HTMLElement {
     if (!rule || !productId) return;
 
     this.error = null;
-    if (!isAcceptedFile(file.name, file.type || 'application/octet-stream', rule.acceptedTypes)) {
-      this.error = `"${file.name}" isn’t an accepted file type.`;
-      toast.error(this.error);
-      this.render();
-      return;
-    }
-    if (file.size > rule.maxFileSizeBytes) {
-      this.error = `"${file.name}" is larger than ${formatBytes(rule.maxFileSizeBytes)}.`;
+    const check = checkFile(file, rule);
+    if (!check.ok) {
+      this.error = fileCheckMessage(file.name, check);
       toast.error(this.error);
       this.render();
       return;

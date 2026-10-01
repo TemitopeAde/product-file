@@ -1,6 +1,7 @@
 import * as DialogPrimitive from '@radix-ui/react-dialog';
 import { X } from 'lucide-react';
 import type { ComponentProps, HTMLAttributes } from 'react';
+import { useI18n } from '../../i18n/runtime';
 import { cn } from '../../lib/utils';
 
 export const Dialog = DialogPrimitive.Root;
@@ -8,6 +9,7 @@ export const DialogTrigger = DialogPrimitive.Trigger;
 export const DialogClose = DialogPrimitive.Close;
 
 export function DialogContent({ className, children, ...props }: ComponentProps<typeof DialogPrimitive.Content>) {
+  const { m } = useI18n();
   return (
     <DialogPrimitive.Portal>
       <DialogPrimitive.Overlay className="fixed inset-0 z-50 bg-black/40" />
@@ -19,7 +21,7 @@ export function DialogContent({ className, children, ...props }: ComponentProps<
         {...props}
       >
         {children}
-        <DialogPrimitive.Close className="absolute right-4 top-4 rounded-sm opacity-70 hover:opacity-100 cursor-pointer" aria-label="Close">
+        <DialogPrimitive.Close className="absolute end-4 top-4 rounded-sm opacity-70 hover:opacity-100 cursor-pointer" aria-label={m.common.close}>
           <X className="size-4" />
         </DialogPrimitive.Close>
       </DialogPrimitive.Content>
@@ -28,7 +30,7 @@ export function DialogContent({ className, children, ...props }: ComponentProps<
 }
 
 export function DialogHeader({ className, ...props }: HTMLAttributes<HTMLDivElement>) {
-  return <div className={cn('flex flex-col gap-1.5 pr-6', className)} {...props} />;
+  return <div className={cn('flex flex-col gap-1.5 pe-6', className)} {...props} />;
 }
 
 export function DialogFooter({ className, ...props }: HTMLAttributes<HTMLDivElement>) {

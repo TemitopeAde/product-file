@@ -19,10 +19,13 @@ describe('file rules', () => {
     expect(isAcceptedFile('doc.pdf', 'application/pdf', ['application/pdf'])).toBe(true);
   });
 
-  it('maps declared MIME types to compatible Wix media types', () => {
-    expect(compatibleMediaTypes('image/png')).toContain('IMAGE');
-    expect(compatibleMediaTypes('image/png')).not.toContain('DOCUMENT');
-    expect(compatibleMediaTypes('application/pdf')).toContain('DOCUMENT');
+  it('maps files to the Wix media types they can be classified as', () => {
+    expect(compatibleMediaTypes('a.png', 'image/png')).toContain('IMAGE');
+    expect(compatibleMediaTypes('a.png', 'image/png')).not.toContain('DOCUMENT');
+    expect(compatibleMediaTypes('a.pdf', 'application/pdf')).toContain('DOCUMENT');
+    expect(compatibleMediaTypes('model.glb', '')).toContain('MODEL3D');
+    expect(compatibleMediaTypes('photo.nef', '')).toContain('IMAGE');
+    expect(compatibleMediaTypes('clip.mkv', '')).toEqual(['VIDEO']);
   });
 
   it('formats sizes', () => {
@@ -40,7 +43,8 @@ describe('parseRuleInput', () => {
     [{ ...valid, requirement: 'SOMETIMES' }],
     [{ ...valid, maxFiles: 0 }],
     [{ ...valid, maxFiles: 21 }],
-    [{ ...valid, maxFileSizeBytes: 2 * 1024 * 1024 * 1024 }],
+    [{ ...valid, maxFileSizeBytes: 5 * 1024 * 1024 * 1024 }],
+    [{ ...valid, acceptedTypes: ['.exe'] }],
     [{ ...valid, acceptedTypes: [] }],
     [{ ...valid, acceptedTypes: ['nonsense'] }],
   ])('rejects %j', (input) => {

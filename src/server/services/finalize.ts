@@ -30,7 +30,7 @@ export async function finalizeWithFile(instanceId: string, upload: uploads.Uploa
   } else {
     const size = file.sizeBytes ?? upload.sizeBytes;
     if (size > upload.maxFileSizeBytes) return reject(upload, file.id, 'FILE_TOO_LARGE');
-    if (!compatibleMediaTypes(upload.mimeType).includes(file.mediaType)) return reject(upload, file.id, 'FILE_TYPE_MISMATCH');
+    if (!compatibleMediaTypes(upload.fileName, upload.mimeType).includes(file.mediaType)) return reject(upload, file.id, 'FILE_TYPE_MISMATCH');
     if (!(await commitQuota(instanceId, upload))) return reject(upload, file.id, 'MONTHLY_UPLOAD_LIMIT_REACHED');
     await uploads.markReady(upload.id, size, file.mediaType);
   }

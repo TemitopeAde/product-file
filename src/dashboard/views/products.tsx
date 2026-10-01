@@ -12,24 +12,27 @@ import { Button } from '../components/ui/button';
 import { Card } from '../components/ui/card';
 import { Input } from '../components/ui/input';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../components/ui/table';
-import { api, errorText } from '../lib/api';
+import { useI18n } from '../i18n/runtime';
+import { api } from '../lib/api';
 import { useResource } from '../lib/use-resource';
 import { RuleDialog } from './rule-dialog';
 
 function RuleSummary({ rule }: { rule: ProductRule | null }) {
-  if (!rule || !rule.enabled) return <Badge variant="secondary">Off</Badge>;
+  const { m, fill, plural } = useI18n();
+  if (!rule || !rule.enabled) return <Badge variant="secondary">{m.common.off}</Badge>;
   return (
     <div className="flex flex-col gap-1">
       <div className="flex gap-1.5">
-        <Badge variant="success">On</Badge>
-        {rule.requirement === 'REQUIRED' ? <Badge variant="default">Required</Badge> : <Badge variant="outline">Optional</Badge>}
+        <Badge variant="success">{m.common.on}</Badge>
+        {rule.requirement === 'REQUIRED' ? <Badge variant="default">{m.products.required}</Badge> : <Badge variant="outline">{m.products.optional}</Badge>}
       </div>
-      <span className="text-xs text-muted-foreground">{rule.acceptedTypes.join(', ')} · ≤ {formatBytes(rule.maxFileSizeBytes)} · {rule.maxFiles} file{rule.maxFiles === 1 ? '' : 's'}</span>
+      <span className="text-xs text-muted-foreground">{fill(m.products.ruleSummary, { types: rule.acceptedTypes.join(', '), size: formatBytes(rule.maxFileSizeBytes), files: plural(m.plural.files, rule.maxFiles) })}</span>
     </div>
   );
 }
 
 export function ProductsView() {
+  const { m, plural, errorMessage } = useI18n();
   const [search, setSearch] = useState('');
   const [query, setQuery] = useState('');
   const [products, setProducts] = useState<ProductSummary[]>([]);
@@ -65,7 +68,7 @@ export function ProductsView() {
       setProducts((current) => [...current, ...more.products]);
       setNextCursor(more.nextCursor);
     } catch (error) {
-      toast.error(errorText(error));
+      toast.error(errorMessage(error));
     } finally {
       setLoadingMore(false);
     }
@@ -77,41 +80,41 @@ export function ProductsView() {
   const enableAll = async () => {
     try {
       const result = await api<EnableAllProductsResult>('/api/products/enable-all', { method: 'POST' });
-      toast.success(`File uploads enabled for ${result.updated} product${result.updated === 1 ? '' : 's'}`);
+      toast.success(plural(m.toasts.enabledProducts, result.updated));
       page.reload();
     } catch (error) {
-      toast.error(errorText(error));
+      toast.error(errorMessage(error));
     }
   };
 
   return (
     <div>
-      <PageHeader title="Products" description="Choose which products accept customer files, which file types, and whether a file is required before checkout." />
+      <PageHeader title={m.products.title} description={m.products.description} />
       {page.data?.catalogVersion === 'STORES_NOT_INSTALLED' ? (
-        <Card><EmptyState icon={Package} title="Wix Stores isn’t installed" description="Add Wix Stores to your site to collect files for products." /></Card>
+        <Card><EmptyState icon={Package} title={m.products.storesMissing} description={m.products.storesMissingBody} /></Card>
       ) : (
         <Card>
           <div className="flex flex-wrap items-center gap-3 border-b p-4">
             <div className="relative w-full max-w-sm">
-              <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
-              <Input className="pl-9" placeholder="Search products by name" value={search} onChange={(e) => setSearch(e.target.value)} aria-label="Search products" />
+              <Search className="pointer-events-none absolute start-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+              <Input className="ps-9" placeholder={m.products.searchPlaceholder} value={search} onChange={(e) => setSearch(e.target.value)} aria-label={m.products.searchLabel} />
             </div>
             <Button variant="outline" onClick={() => setConfirmEnableAll(true)} disabled={!settings.data || page.loading}>
-              <ToggleRight /> Enable all products
+              <ToggleRight /> {m.products.enableAll}
             </Button>
             {!verified && settings.data ? (
-              <Alert variant="info" className="flex-1 py-2"><AlertDescription>Required uploads unlock after one verified test order. See Settings.</AlertDescription></Alert>
+              <Alert variant="info" className="flex-1 py-2"><AlertDescription>{m.products.requiredLocked}</AlertDescription></Alert>
             ) : null}
           </div>
-          {page.error ? <ErrorState message={page.error} onRetry={page.reload} /> : page.loading && products.length === 0 ? <LoadingRows /> : products.length === 0 ? (
-            <EmptyState icon={Package} title={query ? 'No matching products' : 'No products yet'} description={query ? 'Try a different name.' : 'Products you add in Wix Stores appear here.'} />
+          {page.error ? <ErrorState error={page.error} onRetry={page.reload} /> : page.loading && products.length === 0 ? <LoadingRows /> : products.length === 0 ? (
+            <EmptyState icon={Package} title={query ? m.products.noMatches : m.products.empty} description={query ? m.products.noMatchesBody : m.products.emptyBody} />
           ) : (
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>Product</TableHead>
-                  <TableHead>File uploads</TableHead>
-                  <TableHead className="w-32 text-right">Actions</TableHead>
+                  <TableHead>{m.common.product}</TableHead>
+                  <TableHead>{m.products.fileUploads}</TableHead>
+                  <TableHead className="w-32 text-end">{m.common.actions}</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -122,14 +125,14 @@ export function ProductsView() {
                         {product.imageUrl ? <img src={product.imageUrl} alt="" className="size-10 rounded-md border object-cover" /> : <div className="flex size-10 items-center justify-center rounded-md border bg-muted"><ImageOff className="size-4 text-muted-foreground" /></div>}
                         <div>
                           <p className="font-medium">{product.name}</p>
-                          {!product.visible ? <p className="text-xs text-muted-foreground">Hidden in store</p> : null}
+                          {!product.visible ? <p className="text-xs text-muted-foreground">{m.products.hidden}</p> : null}
                         </div>
                       </div>
                     </TableCell>
                     <TableCell><RuleSummary rule={product.rule} /></TableCell>
-                    <TableCell className="text-right">
+                    <TableCell className="text-end">
                       <Button size="sm" variant="outline" onClick={(e) => { e.stopPropagation(); setEditing(product); }}>
-                        <Settings2 /> Configure
+                        <Settings2 /> {m.products.configure}
                       </Button>
                     </TableCell>
                   </TableRow>
@@ -139,7 +142,7 @@ export function ProductsView() {
           )}
           {nextCursor ? (
             <div className="flex justify-center border-t p-3">
-              <Button variant="ghost" disabled={loadingMore} onClick={() => void loadMore()}>{loadingMore ? 'Loading…' : 'Load more products'}</Button>
+              <Button variant="ghost" disabled={loadingMore} onClick={() => void loadMore()}>{loadingMore ? m.common.loadingEllipsis : m.products.loadMore}</Button>
             </div>
           ) : null}
         </Card>
@@ -156,9 +159,9 @@ export function ProductsView() {
       />
       <ConfirmDialog
         open={confirmEnableAll}
-        title="Enable file uploads for all products?"
-        description="Products without upload settings will use your defaults. Existing product-specific settings will be preserved and switched on. This applies to the entire catalog, not only the products currently shown."
-        confirmLabel="Enable all products"
+        title={m.products.confirmTitle}
+        description={m.products.confirmBody}
+        confirmLabel={m.products.confirmAction}
         confirmVariant="default"
         onConfirm={enableAll}
         onOpenChange={setConfirmEnableAll}

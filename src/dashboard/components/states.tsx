@@ -1,11 +1,13 @@
 import { AlertCircle, type LucideIcon } from 'lucide-react';
 import type { ReactNode } from 'react';
+import { useI18n } from '../i18n/runtime';
 import { Button } from './ui/button';
 import { Skeleton } from './ui/skeleton';
 
 export function LoadingRows({ rows = 5 }: { rows?: number }) {
+  const { m } = useI18n();
   return (
-    <div className="flex flex-col gap-3 p-4" aria-busy="true" aria-label="Loading">
+    <div className="flex flex-col gap-3 p-4" aria-busy="true" aria-label={m.common.loading}>
       {Array.from({ length: rows }, (_, i) => (
         <Skeleton key={i} className="h-10 w-full" />
       ))}
@@ -13,13 +15,14 @@ export function LoadingRows({ rows = 5 }: { rows?: number }) {
   );
 }
 
-export function ErrorState({ message, onRetry }: { message: string; onRetry: () => void }) {
+export function ErrorState({ error, onRetry }: { error: unknown; onRetry: () => void }) {
+  const { m, errorMessage } = useI18n();
   return (
     <div className="flex flex-col items-center gap-3 px-6 py-12 text-center" role="alert">
       <AlertCircle className="size-8 text-destructive" />
-      <p className="text-sm text-muted-foreground">{message}</p>
+      <p className="text-sm text-muted-foreground">{errorMessage(error)}</p>
       <Button variant="outline" size="sm" onClick={onRetry}>
-        Try again
+        {m.common.tryAgain}
       </Button>
     </div>
   );

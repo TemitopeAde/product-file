@@ -11,7 +11,7 @@ import { Card } from '../components/ui/card';
 import { Input } from '../components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../components/ui/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../components/ui/table';
-import { formatDateTime, STATUS_LABEL } from '../lib/format';
+import { useI18n } from '../i18n/runtime';
 import type { Navigate } from '../lib/navigation';
 import { useCursorList } from '../lib/use-cursor-list';
 
@@ -19,6 +19,7 @@ const FILTERABLE: UploadStatus[] = ['READY', 'PROCESSING', 'UPLOADING', 'FAILED'
 const pickUploads = (page: UploadsPage) => page.uploads;
 
 export function UploadsView({ navigate }: { navigate: Navigate }) {
+  const { m, label, formatDateTime } = useI18n();
   const [status, setStatus] = useState<string>('ALL');
   const [search, setSearch] = useState('');
   const [query, setQuery] = useState('');
@@ -35,39 +36,39 @@ export function UploadsView({ navigate }: { navigate: Navigate }) {
 
   return (
     <div>
-      <PageHeader title="Uploads" description="Every file customers uploaded, with its product and order. Files are private; downloads use links that expire after an hour." />
+      <PageHeader title={m.uploads.title} description={m.uploads.description} />
       <Card>
         <div className="flex flex-wrap items-center gap-3 border-b p-4">
           <div className="relative w-full max-w-sm">
-            <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
-            <Input className="pl-9" placeholder="Search file, product, or order number" value={search} onChange={(e) => setSearch(e.target.value)} aria-label="Search uploads" />
+            <Search className="pointer-events-none absolute start-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+            <Input className="ps-9" placeholder={m.uploads.searchPlaceholder} value={search} onChange={(e) => setSearch(e.target.value)} aria-label={m.uploads.searchLabel} />
           </div>
           <Select value={status} onValueChange={setStatus}>
-            <SelectTrigger className="w-44" aria-label="Filter by status"><SelectValue /></SelectTrigger>
+            <SelectTrigger className="w-44" aria-label={m.uploads.filterLabel}><SelectValue /></SelectTrigger>
             <SelectContent>
-              <SelectItem value="ALL">All active statuses</SelectItem>
-              {FILTERABLE.map((s) => <SelectItem key={s} value={s}>{STATUS_LABEL[s]}</SelectItem>)}
+              <SelectItem value="ALL">{m.uploads.allStatuses}</SelectItem>
+              {FILTERABLE.map((s) => <SelectItem key={s} value={s}>{m.uploadStatus[s]}</SelectItem>)}
             </SelectContent>
           </Select>
-          {filtered ? <Button variant="ghost" size="sm" onClick={() => { setStatus('ALL'); setSearch(''); }}>Clear filters</Button> : null}
+          {filtered ? <Button variant="ghost" size="sm" onClick={() => { setStatus('ALL'); setSearch(''); }}>{m.uploads.clearFilters}</Button> : null}
         </div>
-        {list.error && list.items.length === 0 ? <ErrorState message={list.error} onRetry={list.reload} /> : list.loading ? <LoadingRows /> : list.items.length === 0 ? (
+        {list.error && list.items.length === 0 ? <ErrorState error={list.error} onRetry={list.reload} /> : list.loading ? <LoadingRows /> : list.items.length === 0 ? (
           <EmptyState
             icon={FolderUp}
-            title={filtered ? 'No files match these filters' : 'No files yet'}
-            description={filtered ? 'Try another status or search.' : 'When customers upload files on product pages or at checkout, they appear here.'}
-            action={filtered ? undefined : <Button variant="outline" onClick={() => navigate('products')}>Turn on uploads for products</Button>}
+            title={filtered ? m.uploads.noMatches : m.uploads.empty}
+            description={filtered ? m.uploads.noMatchesBody : m.uploads.emptyBody}
+            action={filtered ? undefined : <Button variant="outline" onClick={() => navigate('products')}>{m.uploads.turnOn}</Button>}
           />
         ) : (
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>File</TableHead>
-                <TableHead>Product</TableHead>
-                <TableHead>Status</TableHead>
-                <TableHead>Order</TableHead>
-                <TableHead>Uploaded</TableHead>
-                <TableHead className="text-right">Actions</TableHead>
+                <TableHead>{m.common.file}</TableHead>
+                <TableHead>{m.common.product}</TableHead>
+                <TableHead>{m.common.status}</TableHead>
+                <TableHead>{m.common.order}</TableHead>
+                <TableHead>{m.uploads.uploaded}</TableHead>
+                <TableHead className="text-end">{m.common.actions}</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -75,19 +76,19 @@ export function UploadsView({ navigate }: { navigate: Navigate }) {
                 <TableRow key={upload.id}>
                   <TableCell>
                     <p className="max-w-64 truncate font-medium" title={upload.fileName}>{upload.fileName}</p>
-                    <p className="text-xs text-muted-foreground">{formatBytes(upload.sizeBytes)} · {upload.source === 'CHECKOUT' ? 'Checkout' : 'Product page'}</p>
+                    <p className="text-xs text-muted-foreground">{formatBytes(upload.sizeBytes)} · {upload.source === 'CHECKOUT' ? m.source.checkout : m.source.productPage}</p>
                   </TableCell>
                   <TableCell className="max-w-48 truncate">{upload.productName ?? upload.productId}</TableCell>
                   <TableCell>
                     <UploadStatusBadge status={upload.status} />
-                    {upload.failureReason && upload.status === 'FAILED' ? <p className="mt-1 text-xs text-muted-foreground">{upload.failureReason.replaceAll('_', ' ').toLowerCase()}</p> : null}
+                    {upload.failureReason && upload.status === 'FAILED' ? <p className="mt-1 text-xs text-muted-foreground">{label(m.failure, upload.failureReason, m.failure.unknown)}</p> : null}
                   </TableCell>
                   <TableCell>
                     {upload.binding?.orderId ? (
                       <Button variant="link" className="h-auto p-0" onClick={() => navigate('orders', { orderId: upload.binding?.orderId ?? '' })}>
                         #{upload.binding.orderNumber ?? upload.binding.orderId.slice(0, 8)}
                       </Button>
-                    ) : <span className="text-muted-foreground">{upload.binding ? 'In checkout' : '—'}</span>}
+                    ) : <span className="text-muted-foreground">{upload.binding ? m.source.inCheckout : m.common.empty}</span>}
                   </TableCell>
                   <TableCell className="whitespace-nowrap text-muted-foreground">{formatDateTime(upload.createdAt)}</TableCell>
                   <TableCell><FileActions upload={upload} onDeleted={list.reload} /></TableCell>
@@ -98,7 +99,7 @@ export function UploadsView({ navigate }: { navigate: Navigate }) {
         )}
         {list.hasMore ? (
           <div className="flex justify-center border-t p-3">
-            <Button variant="ghost" disabled={list.loadingMore} onClick={() => void list.loadMore()}>{list.loadingMore ? 'Loading…' : 'Load more'}</Button>
+            <Button variant="ghost" disabled={list.loadingMore} onClick={() => void list.loadMore()}>{list.loadingMore ? m.common.loadingEllipsis : m.uploads.loadMore}</Button>
           </div>
         ) : null}
       </Card>

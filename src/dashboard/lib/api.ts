@@ -35,7 +35,3 @@ export async function api<T>(path: string, init: { method?: string; body?: unkno
   }
   return body as T;
 }
-
-export function errorText(error: unknown): string {
-  return error instanceof Error ? error.message : 'Something went wrong. Please try again.';
-}

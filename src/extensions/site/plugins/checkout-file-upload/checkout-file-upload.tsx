@@ -1,9 +1,9 @@
-import { acceptAttribute, formatBytes, isAcceptedFile } from '../../../../shared/file-rules';
+import { acceptAttribute, checkFile } from '../../../../shared/file-rules';
 import type { CheckoutLineItemState, CheckoutState, UploadRecord } from '../../../../shared/types';
 import { api } from '../../../../site/api';
 import { BASE_STYLES, h } from '../../../../site/dom';
 import { icon } from '../../../../site/icons';
-import { errorMessage, liveFileItem, ruleSummary, savedFileItem, type LiveUpload } from '../../../../site/file-list';
+import { errorMessage, fileCheckMessage, liveFileItem, ruleSummary, savedFileItem, type LiveUpload } from '../../../../site/file-list';
 import { removeUpload, startUpload } from '../../../../site/upload-engine';
 
 interface SlotBrand {
@@ -140,12 +140,9 @@ class CheckoutFileUpload extends HTMLElement {
         this.errors.set(item.lineItemId, `This item accepts up to ${item.rule.maxFiles} file(s).`);
         break;
       }
-      if (!isAcceptedFile(file.name, file.type || 'application/octet-stream', item.rule.acceptedTypes)) {
-        this.errors.set(item.lineItemId, `"${file.name}" isn’t an accepted file type.`);
-        continue;
-      }
-      if (file.size > item.rule.maxFileSizeBytes) {
-        this.errors.set(item.lineItemId, `"${file.name}" is larger than ${formatBytes(item.rule.maxFileSizeBytes)}.`);
+      const check = checkFile(file, item.rule);
+      if (!check.ok) {
+        this.errors.set(item.lineItemId, fileCheckMessage(file.name, check));
         continue;
       }
       const entry: LiveUpload = {

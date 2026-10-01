@@ -1,23 +1,25 @@
 import { CheckCircle2, Clock, Loader2, Trash2, XCircle } from 'lucide-react';
 import type { LinkStatus, UploadStatus } from '../../shared/types';
-import { STATUS_LABEL } from '../lib/format';
+import { useI18n } from '../i18n/runtime';
 import { Badge } from './ui/badge';
 
 export function UploadStatusBadge({ status }: { status: UploadStatus }) {
+  const { m } = useI18n();
+  const label = m.uploadStatus[status];
   switch (status) {
     case 'READY':
-      return <Badge variant="success"><CheckCircle2 />{STATUS_LABEL[status]}</Badge>;
+      return <Badge variant="success"><CheckCircle2 />{label}</Badge>;
     case 'FAILED':
     case 'EXPIRED':
-      return <Badge variant="destructive"><XCircle />{STATUS_LABEL[status]}</Badge>;
+      return <Badge variant="destructive"><XCircle />{label}</Badge>;
     case 'CANCELLED':
     case 'DELETED':
-      return <Badge variant="secondary"><Trash2 />{STATUS_LABEL[status]}</Badge>;
+      return <Badge variant="secondary"><Trash2 />{label}</Badge>;
     case 'PROCESSING':
     case 'UPLOADING':
-      return <Badge variant="default"><Loader2 className="animate-spin" />{STATUS_LABEL[status]}</Badge>;
+      return <Badge variant="default"><Loader2 className="animate-spin" />{label}</Badge>;
     case 'RESERVED':
-      return <Badge variant="secondary"><Clock />{STATUS_LABEL[status]}</Badge>;
+      return <Badge variant="secondary"><Clock />{label}</Badge>;
     default: {
       const exhaustive: never = status;
       return exhaustive;
@@ -26,7 +28,8 @@ export function UploadStatusBadge({ status }: { status: UploadStatus }) {
 }
 
 export function LinkStatusBadge({ status }: { status: LinkStatus }) {
-  if (status === 'LINKED') return <Badge variant="success">Linked to line item</Badge>;
-  if (status === 'UNRESOLVED') return <Badge variant="warning">Needs review</Badge>;
-  return <Badge variant="secondary">Awaiting order</Badge>;
+  const { m } = useI18n();
+  if (status === 'LINKED') return <Badge variant="success">{m.linkStatus.LINKED}</Badge>;
+  if (status === 'UNRESOLVED') return <Badge variant="warning">{m.linkStatus.UNRESOLVED}</Badge>;
+  return <Badge variant="secondary">{m.linkStatus.PENDING}</Badge>;
 }

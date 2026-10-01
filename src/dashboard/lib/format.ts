@@ -1,36 +1,19 @@
-import type { AccessTier, UploadStatus } from '../../shared/types';
+const EMPTY = '—';
 
-export const TIER_LABEL: Record<AccessTier, string> = {
-  BASIC: 'Basic',
-  PRO_TRIAL: 'Pro trial',
-  PRO: 'Pro',
-  INTERNAL_WIX: 'Wix internal',
-};
-
-export const STATUS_LABEL: Record<UploadStatus, string> = {
-  RESERVED: 'Reserved',
-  UPLOADING: 'Uploading',
-  PROCESSING: 'Processing',
-  READY: 'Ready',
-  FAILED: 'Failed',
-  CANCELLED: 'Cancelled',
-  EXPIRED: 'Expired',
-  DELETED: 'Deleted',
-};
-
-const dateFormat = new Intl.DateTimeFormat(undefined, { dateStyle: 'medium' });
-const dateTimeFormat = new Intl.DateTimeFormat(undefined, { dateStyle: 'medium', timeStyle: 'short' });
-
-export function formatDate(iso: string | null): string {
-  if (!iso) return '—';
+export function formatDate(iso: string | null, locale: string): string {
+  if (!iso) return EMPTY;
   const date = new Date(iso);
-  return Number.isNaN(date.getTime()) ? '—' : dateFormat.format(date);
+  return Number.isNaN(date.getTime()) ? EMPTY : new Intl.DateTimeFormat(locale, { dateStyle: 'medium' }).format(date);
 }
 
-export function formatDateTime(iso: string | null): string {
-  if (!iso) return '—';
+export function formatDateTime(iso: string | null, locale: string): string {
+  if (!iso) return EMPTY;
   const date = new Date(iso);
-  return Number.isNaN(date.getTime()) ? '—' : dateTimeFormat.format(date);
+  return Number.isNaN(date.getTime()) ? EMPTY : new Intl.DateTimeFormat(locale, { dateStyle: 'medium', timeStyle: 'short' }).format(date);
+}
+
+export function formatChartDate(isoDate: string, locale: string): string {
+  return new Date(`${isoDate}T00:00:00Z`).toLocaleDateString(locale, { month: 'short', day: 'numeric', timeZone: 'UTC' });
 }
 
 export function openExternal(url: string): void {

@@ -2,6 +2,7 @@
 // a file: network retries, offline pauses, page reloads, and expired Wix sessions all reuse it,
 // so they never consume another monthly slot.
 import * as tus from 'tus-js-client';
+import { resolveMimeType } from '../shared/file-rules';
 import type { ReserveUploadRequest, UploadRecord, UploadSession } from '../shared/types';
 import { api, ClientApiError } from './api';
 
@@ -62,8 +63,9 @@ function httpStatus(error: unknown): number | null {
   return error instanceof tus.DetailedError && error.originalResponse ? error.originalResponse.getStatus() : null;
 }
 
+/** Canonical MIME type for known Wix formats; browsers often report none for them. */
 function mimeTypeOf(file: File): string {
-  return file.type || 'application/octet-stream';
+  return resolveMimeType(file.name, file.type);
 }
 
 async function openSession(key: string, file: File, req: Omit<ReserveUploadRequest, 'fileName' | 'mimeType' | 'sizeBytes'>): Promise<UploadSession | UploadRecord> {

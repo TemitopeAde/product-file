@@ -1,5 +1,5 @@
 import type { ProductRule, ProductRuleInput, StorefrontRule } from '../../shared/types';
-import { MAX_FILE_SIZE_CAP_BYTES, MAX_FILES_CAP, MAX_INSTRUCTIONS_LENGTH } from '../../shared/file-rules';
+import { formatBytes, MAX_FILE_SIZE_CAP_BYTES, MAX_FILES_CAP, MAX_INSTRUCTIONS_LENGTH } from '../../shared/file-rules';
 import { ApiError } from '../errors';
 import { parseAcceptedTypes } from './settings';
 
@@ -13,7 +13,7 @@ export function parseRuleInput(body: Record<string, unknown>): ProductRuleInput 
     throw new ApiError('INVALID_REQUEST', '"requirement" must be OPTIONAL or REQUIRED.');
   }
   if (typeof maxFileSizeBytes !== 'number' || !Number.isInteger(maxFileSizeBytes) || maxFileSizeBytes < 1 || maxFileSizeBytes > MAX_FILE_SIZE_CAP_BYTES) {
-    throw new ApiError('INVALID_REQUEST', 'Maximum file size must be between 1 byte and 1 GB.');
+    throw new ApiError('INVALID_REQUEST', `Maximum file size must be between 1 byte and ${formatBytes(MAX_FILE_SIZE_CAP_BYTES)}.`);
   }
   if (typeof maxFiles !== 'number' || !Number.isInteger(maxFiles) || maxFiles < 1 || maxFiles > MAX_FILES_CAP) {
     throw new ApiError('INVALID_REQUEST', `Maximum file count must be between 1 and ${MAX_FILES_CAP}.`);

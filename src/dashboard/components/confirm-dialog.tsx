@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useI18n } from '../i18n/runtime';
 import { Button, type ButtonProps } from './ui/button';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from './ui/dialog';
 
@@ -13,6 +14,7 @@ interface ConfirmDialogProps {
 }
 
 export function ConfirmDialog({ open, title, description, confirmLabel, confirmVariant = 'destructive', onConfirm, onOpenChange }: ConfirmDialogProps) {
+  const { m } = useI18n();
   const [busy, setBusy] = useState(false);
   return (
     <Dialog open={open} onOpenChange={(next) => !busy && onOpenChange(next)}>
@@ -23,7 +25,7 @@ export function ConfirmDialog({ open, title, description, confirmLabel, confirmV
         </DialogHeader>
         <DialogFooter>
           <Button variant="outline" disabled={busy} onClick={() => onOpenChange(false)}>
-            Cancel
+            {m.common.cancel}
           </Button>
           <Button
             variant={confirmVariant}

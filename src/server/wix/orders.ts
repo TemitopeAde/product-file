@@ -39,7 +39,7 @@ function toDetails(order: Order, orderId: string): WixOrderDetails {
     },
     lineItems: (order.lineItems ?? []).map((li) => ({
       id: li._id ?? '',
-      name: li.productName?.translated ?? li.productName?.original ?? 'Item',
+      name: li.productName?.translated ?? li.productName?.original ?? null,
       quantity: li.quantity ?? 1,
       price: li.price?.formattedAmount ?? null,
       total: li.totalPriceAfterTax?.formattedAmount ?? null,

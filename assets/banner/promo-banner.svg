@@ -1,0 +1,88 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1080" height="720" viewBox="0 0 540 360">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#4B74F7"/>
+      <stop offset="1" stop-color="#2443C4"/>
+    </linearGradient>
+    <filter id="sh" x="-30%" y="-30%" width="160%" height="170%">
+      <feDropShadow dx="0" dy="8" stdDeviation="10" flood-color="#0B1E6B" flood-opacity="0.35"/>
+    </filter>
+    <filter id="shs" x="-40%" y="-40%" width="180%" height="190%">
+      <feDropShadow dx="0" dy="5" stdDeviation="6" flood-color="#0B1E6B" flood-opacity="0.3"/>
+    </filter>
+    <linearGradient id="photo" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#FFD7A8"/>
+      <stop offset="1" stop-color="#FF9F7A"/>
+    </linearGradient>
+    <linearGradient id="photo2" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#9FE3C9"/>
+      <stop offset="1" stop-color="#4FB6A0"/>
+    </linearGradient>
+    <clipPath id="img"><rect x="166" y="64" width="100" height="100" rx="10"/></clipPath>
+  </defs>
+
+  <rect width="540" height="360" fill="url(#bg)"/>
+  <circle cx="470" cy="40" r="120" fill="#FFFFFF" opacity="0.06"/>
+  <circle cx="60" cy="330" r="140" fill="#FFFFFF" opacity="0.05"/>
+  <circle cx="500" cy="320" r="40" fill="#FFFFFF" opacity="0.05"/>
+
+  <!-- flow path from files to dropzone -->
+  <path d="M120 175 C 140 230, 150 240, 168 232" fill="none" stroke="#FFFFFF" stroke-opacity="0.7" stroke-width="2.5" stroke-dasharray="5 6" stroke-linecap="round"/>
+  <path d="M430 240 C 410 262, 395 256, 380 246" fill="none" stroke="#FFFFFF" stroke-opacity="0.7" stroke-width="2.5" stroke-dasharray="5 6" stroke-linecap="round"/>
+
+  <!-- product card -->
+  <g filter="url(#sh)">
+    <rect x="150" y="48" width="240" height="268" rx="16" fill="#FFFFFF"/>
+  </g>
+  <!-- product image -->
+  <rect x="166" y="64" width="100" height="100" rx="10" fill="#E9EEFF"/>
+  <circle cx="242" cy="88" r="10" fill="#FFB547"/>
+  <path d="M166 150 L198 112 L222 138 L236 124 L266 154 V164 H166 Z" fill="#7C96F2" clip-path="url(#img)"/>
+  <!-- details -->
+  <rect x="280" y="70" width="92" height="10" rx="5" fill="#1F2A55" opacity="0.85"/>
+  <rect x="280" y="88" width="64" height="8" rx="4" fill="#C5CDE6"/>
+  <rect x="280" y="110" width="40" height="11" rx="5.5" fill="#2C4FD8"/>
+  <rect x="280" y="138" width="94" height="26" rx="7" fill="#2C4FD8"/>
+  <rect x="304" y="148" width="46" height="6" rx="3" fill="#FFFFFF" opacity="0.9"/>
+
+  <!-- dropzone -->
+  <rect x="166" y="180" width="208" height="76" rx="10" fill="#F3F6FF" stroke="#8EA6F5" stroke-width="1.6" stroke-dasharray="6 5"/>
+  <circle cx="270" cy="208" r="15" fill="#2C4FD8"/>
+  <path d="M270 216 V200 M263 206 L270 199 L277 206" fill="none" stroke="#FFFFFF" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
+  <rect x="232" y="232" width="76" height="6" rx="3" fill="#B7C3EA"/>
+
+  <!-- uploaded file rows -->
+  <rect x="166" y="266" width="208" height="34" rx="8" fill="#F7F8FC"/>
+  <rect x="174" y="273" width="20" height="20" rx="4" fill="url(#photo)"/>
+  <rect x="202" y="277" width="88" height="6" rx="3" fill="#1F2A55" opacity="0.7"/>
+  <rect x="202" y="287" width="50" height="5" rx="2.5" fill="#C5CDE6"/>
+  <rect x="304" y="276" width="44" height="14" rx="7" fill="#DDF5EA"/>
+  <circle cx="314" cy="283" r="4" fill="#1E9E6A"/>
+  <rect x="321" y="281" width="20" height="4" rx="2" fill="#1E9E6A" opacity="0.7"/>
+  <circle cx="362" cy="283" r="7" fill="none" stroke="#9AA6C8" stroke-width="1.6"/>
+  <path d="M362 279.5 V285 M359.5 283 L362 285.5 L364.5 283" fill="none" stroke="#9AA6C8" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/>
+
+  <!-- floating doc (left) -->
+  <g transform="rotate(-12 96 140)" filter="url(#shs)">
+    <path d="M70 100 H108 L124 116 V176 a6 6 0 0 1 -6 6 H70 a6 6 0 0 1 -6 -6 V106 a6 6 0 0 1 6 -6 Z" fill="#FFFFFF"/>
+    <path d="M108 100 V110 a6 6 0 0 0 6 6 H124 Z" fill="#DCE3FA"/>
+    <rect x="72" y="124" width="44" height="22" rx="4" fill="#FF6B6B"/>
+    <rect x="72" y="154" width="40" height="5" rx="2.5" fill="#C5CDE6"/>
+    <rect x="72" y="164" width="28" height="5" rx="2.5" fill="#C5CDE6"/>
+  </g>
+
+  <!-- floating image (right) -->
+  <g transform="rotate(9 450 190)" filter="url(#shs)">
+    <rect x="410" y="148" width="80" height="92" rx="9" fill="#FFFFFF"/>
+    <rect x="418" y="156" width="64" height="56" rx="6" fill="url(#photo2)"/>
+    <circle cx="468" cy="170" r="6" fill="#FFF4C2"/>
+    <path d="M418 206 L440 182 L456 198 L466 190 L482 206 a6 6 0 0 1 -6 6 H424 a6 6 0 0 1 -6 -6 Z" fill="#2F8F7B"/>
+    <rect x="418" y="220" width="46" height="5" rx="2.5" fill="#C5CDE6"/>
+  </g>
+
+  <!-- success badge -->
+  <g filter="url(#shs)">
+    <circle cx="390" cy="58" r="17" fill="#22B573"/>
+  </g>
+  <path d="M382 58 L388 64 L399 52" fill="none" stroke="#FFFFFF" stroke-width="3.4" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>

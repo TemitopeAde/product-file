@@ -2,6 +2,7 @@ import { CheckCircle2, CircleDashed, PlugZap } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { toast } from 'sonner';
 import type { AppSettings, PluginStatusResponse, SettingsResponse } from '../../shared/types';
+import { MAX_FILE_SIZE_CAP_BYTES } from '../../shared/file-rules';
 import { AcceptedTypesField } from '../components/accepted-types-field';
 import { PageHeader } from '../components/page-header';
 import { ErrorState, LoadingRows } from '../components/states';
@@ -10,26 +11,28 @@ import { Button } from '../components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../components/ui/card';
 import { Input, Textarea } from '../components/ui/input';
 import { Label } from '../components/ui/label';
-import { api, errorText } from '../lib/api';
-import { formatDateTime } from '../lib/format';
+import { useI18n } from '../i18n/runtime';
+import { api } from '../lib/api';
 import { addPlugin } from '../lib/plugins';
 import { useResource } from '../lib/use-resource';
 
 const MB = 1024 * 1024;
 
 function PlacementRow({ name, placed, onAdd }: { name: string; placed: boolean | null; onAdd: () => void }) {
+  const { m } = useI18n();
   return (
     <div className="flex items-center justify-between gap-3 py-3">
       <div className="flex items-center gap-2 text-sm font-medium">{name}</div>
       <div className="flex items-center gap-2">
-        {placed ? <Badge variant="success">On your site</Badge> : null}
-        <Button size="sm" variant="outline" onClick={onAdd}>{placed ? 'Add again' : 'Add to site'}</Button>
+        {placed ? <Badge variant="success">{m.settings.onSite}</Badge> : null}
+        <Button size="sm" variant="outline" onClick={onAdd}>{placed ? m.settings.addAgain : m.settings.addToSite}</Button>
       </div>
     </div>
   );
 }
 
 export function SettingsView() {
+  const { m, fill, formatDateTime, errorMessage } = useI18n();
   const resource = useResource<SettingsResponse>('/api/settings');
   const plugins = useResource<PluginStatusResponse>('/api/plugin-status');
   const [form, setForm] = useState<AppSettings | null>(null);
@@ -43,8 +46,8 @@ export function SettingsView() {
     setSizeMb(String(Math.round((resource.data.settings.defaults.maxFileSizeBytes / MB) * 10) / 10));
   }, [resource.data]);
 
-  if (resource.error) return <div><PageHeader title="Settings" /><Card><ErrorState message={resource.error} onRetry={resource.reload} /></Card></div>;
-  if (!form || !resource.data) return <div><PageHeader title="Settings" /><Card><LoadingRows /></Card></div>;
+  if (resource.error) return <div><PageHeader title={m.settings.title} /><Card><ErrorState error={resource.error} onRetry={resource.reload} /></Card></div>;
+  if (!form || !resource.data) return <div><PageHeader title={m.settings.title} /><Card><LoadingRows /></Card></div>;
 
   const setText = (key: keyof AppSettings['storefront'], value: string) => setForm({ ...form, storefront: { ...form.storefront, [key]: value } });
   const verification = resource.data.checkoutVerification;
@@ -56,9 +59,9 @@ export function SettingsView() {
     try {
       const saved = await api<SettingsResponse>('/api/settings', { method: 'PUT', body: { ...form, defaults: { ...form.defaults, maxFileSizeBytes: bytes } } });
       resource.setData(saved);
-      toast.success('Settings saved');
+      toast.success(m.toasts.settingsSaved);
     } catch (error) {
-      toast.error(errorText(error));
+      toast.error(errorMessage(error));
     } finally {
       setSaving(false);
     }
@@ -81,36 +84,36 @@ export function SettingsView() {
 
   return (
     <div>
-      <PageHeader title="Settings" actions={<Button disabled={saving} onClick={() => void save()}>{saving ? 'Saving…' : 'Save changes'}</Button>} />
+      <PageHeader title={m.settings.title} actions={<Button disabled={saving} onClick={() => void save()}>{saving ? m.common.saving : m.settings.save}</Button>} />
       <div className="grid gap-6 lg:grid-cols-2">
         <Card>
           <CardHeader>
-            <CardTitle>Checkout verification</CardTitle>
-            <CardDescription>Required uploads block checkout, so they unlock only after this site proves the full flow works.</CardDescription>
+            <CardTitle>{m.settings.verification}</CardTitle>
+            <CardDescription>{m.settings.verificationBody}</CardDescription>
           </CardHeader>
           <CardContent className="flex flex-col gap-4">
             {verification.verifiedAt ? (
-              <div className="flex items-center gap-2 text-sm"><CheckCircle2 className="size-5 text-success" /> Verified {formatDateTime(verification.verifiedAt)}. Required uploads are available.</div>
+              <div className="flex items-center gap-2 text-sm"><CheckCircle2 className="size-5 text-success" /> {fill(m.settings.verified, { date: formatDateTime(verification.verifiedAt) })}</div>
             ) : (
               <>
-                <div className="flex items-center gap-2 text-sm"><CircleDashed className="size-5 text-muted-foreground" /> Not verified yet</div>
-                <ol className="list-decimal space-y-1.5 pl-5 text-sm text-muted-foreground">
-                  <li>Add the checkout plugin to your site (below).</li>
-                  <li>Turn on optional uploads for a product.</li>
-                  <li>On your live site, add that product to the cart and go to checkout.</li>
-                  <li>Attach a file to the item in checkout and wait until it shows “Uploaded”.</li>
-                  <li>Place the order (a manual or test payment method works).</li>
+                <div className="flex items-center gap-2 text-sm"><CircleDashed className="size-5 text-muted-foreground" /> {m.settings.notVerified}</div>
+                <ol className="list-decimal space-y-1.5 ps-5 text-sm text-muted-foreground">
+                  <li>{m.settings.stepAddPlugin}</li>
+                  <li>{m.settings.stepOptional}</li>
+                  <li>{m.settings.stepLive}</li>
+                  <li>{m.settings.stepAttach}</li>
+                  <li>{m.settings.stepPlace}</li>
                 </ol>
-                <p className="text-sm text-muted-foreground">When the order is created with its file matched to the exact line item, verification completes automatically.</p>
+                <p className="text-sm text-muted-foreground">{m.settings.verificationDone}</p>
                 <div className="flex flex-wrap gap-2">
                   {plugins.data?.checkout.placedInSlot === true ? (
-                    <Badge variant="success"><CheckCircle2 aria-hidden="true" /> Checkout plugin added</Badge>
+                    <Badge variant="success"><CheckCircle2 aria-hidden="true" /> {m.settings.pluginAdded}</Badge>
                   ) : null}
                   <Button disabled={addingCheckoutPlugin} onClick={() => void addCheckoutPlugin()}>
                     <PlugZap aria-hidden="true" />
-                    {addingCheckoutPlugin ? 'Adding checkout plugin…' : 'Add checkout plugin'}
+                    {addingCheckoutPlugin ? m.overview.addingCheckout : m.overview.addCheckout}
                   </Button>
-                  <Button variant="outline" onClick={refreshCheckoutFlow}>Check again</Button>
+                  <Button variant="outline" onClick={refreshCheckoutFlow}>{m.settings.checkAgain}</Button>
                 </div>
               </>
             )}
@@ -119,37 +122,37 @@ export function SettingsView() {
 
         <Card>
           <CardHeader>
-            <CardTitle>Site plugins</CardTitle>
-            <CardDescription>Place the uploaders on your product page and checkout. You can move them later in the Editor.</CardDescription>
+            <CardTitle>{m.settings.plugins}</CardTitle>
+            <CardDescription>{m.settings.pluginsBody}</CardDescription>
           </CardHeader>
           <CardContent className="divide-y">
-            {plugins.error ? <ErrorState message={plugins.error} onRetry={plugins.reload} /> : !plugins.data ? <LoadingRows rows={2} /> : (
+            {plugins.error ? <ErrorState error={plugins.error} onRetry={plugins.reload} /> : !plugins.data ? <LoadingRows rows={2} /> : (
               <>
-                <PlacementRow name="Product page uploader" placed={plugins.data.productPage.placedInSlot} onAdd={() => void addPlugin('productPage', pageVersion).then((ok) => ok && plugins.reload())} />
-                <PlacementRow name="Checkout file attachments" placed={plugins.data.checkout.placedInSlot} onAdd={() => void addPlugin('checkout', pageVersion).then((ok) => ok && plugins.reload())} />
-                {plugins.data.statusError ? <p className="pt-3 text-xs text-muted-foreground">{plugins.data.statusError}</p> : null}
+                <PlacementRow name={m.settings.productPage} placed={plugins.data.productPage.placedInSlot} onAdd={() => void addPlugin('productPage', pageVersion).then((ok) => ok && plugins.reload())} />
+                <PlacementRow name={m.settings.checkoutFiles} placed={plugins.data.checkout.placedInSlot} onAdd={() => void addPlugin('checkout', pageVersion).then((ok) => ok && plugins.reload())} />
+                {plugins.data.statusError ? <p className="pt-3 text-xs text-muted-foreground">{m.overview.pluginStatusError}</p> : null}
               </>
             )}
           </CardContent>
         </Card>
 
         <Card>
-          <CardHeader><CardTitle>Storefront text</CardTitle><CardDescription>What customers see on product pages and at checkout.</CardDescription></CardHeader>
+          <CardHeader><CardTitle>{m.settings.storefront}</CardTitle><CardDescription>{m.settings.storefrontBody}</CardDescription></CardHeader>
           <CardContent className="flex flex-col gap-4">
-            <div className="flex flex-col gap-2"><Label htmlFor="s-ppt">Product page title</Label><Input id="s-ppt" maxLength={80} value={form.storefront.productPageTitle} onChange={(e) => setText('productPageTitle', e.target.value)} /></div>
-            <div className="flex flex-col gap-2"><Label htmlFor="s-pph">Product page help text</Label><Textarea id="s-pph" maxLength={300} value={form.storefront.productPageHelp} onChange={(e) => setText('productPageHelp', e.target.value)} /></div>
-            <div className="flex flex-col gap-2"><Label htmlFor="s-ct">Checkout title</Label><Input id="s-ct" maxLength={80} value={form.storefront.checkoutTitle} onChange={(e) => setText('checkoutTitle', e.target.value)} /></div>
-            <div className="flex flex-col gap-2"><Label htmlFor="s-ch">Checkout help text</Label><Textarea id="s-ch" maxLength={300} value={form.storefront.checkoutHelp} onChange={(e) => setText('checkoutHelp', e.target.value)} /></div>
+            <div className="flex flex-col gap-2"><Label htmlFor="s-ppt">{m.settings.productPageTitle}</Label><Input id="s-ppt" maxLength={80} value={form.storefront.productPageTitle} onChange={(e) => setText('productPageTitle', e.target.value)} /></div>
+            <div className="flex flex-col gap-2"><Label htmlFor="s-pph">{m.settings.productPageHelp}</Label><Textarea id="s-pph" maxLength={300} value={form.storefront.productPageHelp} onChange={(e) => setText('productPageHelp', e.target.value)} /></div>
+            <div className="flex flex-col gap-2"><Label htmlFor="s-ct">{m.settings.checkoutTitle}</Label><Input id="s-ct" maxLength={80} value={form.storefront.checkoutTitle} onChange={(e) => setText('checkoutTitle', e.target.value)} /></div>
+            <div className="flex flex-col gap-2"><Label htmlFor="s-ch">{m.settings.checkoutHelp}</Label><Textarea id="s-ch" maxLength={300} value={form.storefront.checkoutHelp} onChange={(e) => setText('checkoutHelp', e.target.value)} /></div>
           </CardContent>
         </Card>
 
         <Card>
-          <CardHeader><CardTitle>Defaults for new products</CardTitle><CardDescription>Applied when you turn on uploads for a product. You can change them per product.</CardDescription></CardHeader>
+          <CardHeader><CardTitle>{m.settings.defaults}</CardTitle><CardDescription>{m.settings.defaultsBody}</CardDescription></CardHeader>
           <CardContent className="flex flex-col gap-4">
-            <AcceptedTypesField id="d-types" types={form.defaults.acceptedTypes} onChange={(acceptedTypes) => setForm({ ...form, defaults: { ...form.defaults, acceptedTypes } })} />
+            <AcceptedTypesField id="d-types" types={form.defaults.acceptedTypes} maxFileSizeBytes={Math.round(Number(sizeMb) * MB) || undefined} onChange={(acceptedTypes) => setForm({ ...form, defaults: { ...form.defaults, acceptedTypes } })} />
             <div className="grid gap-4 sm:grid-cols-2">
-              <div className="flex flex-col gap-2"><Label htmlFor="d-size">Max file size (MB)</Label><Input id="d-size" type="number" min={0.1} max={1024} step={0.1} value={sizeMb} onChange={(e) => setSizeMb(e.target.value)} /></div>
-              <div className="flex flex-col gap-2"><Label htmlFor="d-count">Max files per item</Label><Input id="d-count" type="number" min={1} max={20} value={form.defaults.maxFiles} onChange={(e) => setForm({ ...form, defaults: { ...form.defaults, maxFiles: Number.parseInt(e.target.value, 10) || 1 } })} /></div>
+              <div className="flex flex-col gap-2"><Label htmlFor="d-size">{m.settings.maxSize}</Label><Input id="d-size" type="number" min={0.1} max={MAX_FILE_SIZE_CAP_BYTES / MB} step={0.1} value={sizeMb} onChange={(e) => setSizeMb(e.target.value)} /></div>
+              <div className="flex flex-col gap-2"><Label htmlFor="d-count">{m.settings.maxFiles}</Label><Input id="d-count" type="number" min={1} max={20} value={form.defaults.maxFiles} onChange={(e) => setForm({ ...form, defaults: { ...form.defaults, maxFiles: Number.parseInt(e.target.value, 10) || 1 } })} /></div>
             </div>
           </CardContent>
         </Card>
